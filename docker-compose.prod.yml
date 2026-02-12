@@ -1,0 +1,24 @@
+services:
+  backend:
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    volumes:
+      - db-data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
