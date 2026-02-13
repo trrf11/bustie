@@ -5,6 +5,11 @@
   box-sizing: border-box;
 }
 
+/* Prevent Safari's 300ms tap delay and double-tap-to-zoom */
+html {
+  touch-action: manipulation;
+}
+
 :root {
   --color-primary: #006772;
   --color-primary-light: #008891;
@@ -26,18 +31,27 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
-  min-height: 100dvh;
+  /* Safari iOS ignores overflow:hidden on body without fixed positioning */
+  position: fixed;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 #root {
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 /* === App Layout === */
 .app {
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* === Header === */
@@ -84,9 +98,8 @@ body {
 /* === Map Section === */
 .map-section {
   position: relative;
-  height: 60dvh;
-  min-height: 300px;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
 }
 
 .bus-map {
@@ -99,6 +112,7 @@ body {
 .bus-marker {
   background: none !important;
   border: none !important;
+  transition: transform 1s ease-in-out;
 }
 
 
@@ -245,6 +259,7 @@ body {
   padding: 4px 10px;
   border-radius: 100px;
   border: 1px solid rgba(245, 158, 11, 0.25);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
@@ -256,6 +271,61 @@ body {
   flex-direction: column;
   gap: 1px;
   background: var(--color-border);
+}
+
+/* Mobile: hide desktop sidebar, show bottom sheet */
+.side-content.desktop-only {
+  display: none;
+}
+
+/* === Bottom Sheet (mobile only) === */
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  /* Must match viewport height so vaul's snap-point offset math works correctly.
+     Snap fractions (0.12, 0.45, 0.8) are relative to this height.
+     vh fallback for Safari < 15.4 which doesn't support dvh. */
+  height: 100vh;
+  height: 100dvh;
+  background: var(--color-surface);
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+  outline: none;
+  /* Safe area padding for phones with home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.bottom-sheet > [data-vaul-handle-wrapper] {
+  flex-shrink: 0;
+}
+
+.bottom-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  /* Hide scrollbar but keep scrolling */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.bottom-sheet-body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Inside the bottom sheet, side-content shouldn't set its own overflow */
+.bottom-sheet .side-content {
+  flex: none;
+  overflow-y: visible;
+}
+
+/* Vaul overlay — we don't want one since the map should stay interactive */
+[vaul-overlay] {
+  display: none !important;
 }
 
 .delay-badge {
@@ -860,14 +930,19 @@ body {
 
   .map-section {
     flex: 1;
-    height: auto;
-    min-height: calc(100dvh - 52px); /* minus header */
+    min-height: 0;
   }
 
-  .side-content {
+  /* Desktop: show sidebar, hide bottom sheet */
+  .side-content.desktop-only {
+    display: flex;
     width: 360px;
     flex-shrink: 0;
     border-left: 1px solid var(--color-border);
+  }
+
+  [data-vaul-drawer] {
+    display: none !important;
   }
 
   .leaderboard-header {

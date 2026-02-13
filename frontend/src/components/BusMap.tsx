@@ -76,7 +76,11 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
     }
 
     if (allPoints.length > 1) {
-      map.fitBounds(allPoints, { padding: [30, 30] });
+      // On mobile, the bottom sheet covers ~45% of the viewport.
+      // Add extra bottom padding so the map content centers above the sheet.
+      const isMobile = window.innerWidth < 768;
+      const bottomPad = isMobile ? Math.round(window.innerHeight * 0.45) : 30;
+      map.fitBounds(allPoints, { paddingTopLeft: [30, 30], paddingBottomRight: [30, bottomPad] });
     }
   }, [map, data?.route.direction1.shape.length]);
 

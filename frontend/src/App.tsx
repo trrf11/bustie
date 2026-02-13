@@ -6,6 +6,7 @@ import { SavedTrips } from './components/SavedTrips';
 import { DelayLeaderboard } from './components/DelayLeaderboard';
 import { InstagramFeed } from './components/InstagramFeed';
 import { Accordion } from './components/Accordion';
+import { BottomSheet } from './components/BottomSheet';
 import { useVehicles } from './hooks/useVehicles';
 import { useSavedTrips } from './hooks/useSavedTrips';
 import type { StopInfo } from './types';
@@ -148,7 +149,8 @@ function App() {
           )}
         </div>
 
-        <div className="side-content">
+        {/* Desktop: sidebar */}
+        <div className="side-content desktop-only">
           <SavedTrips
             trips={savedTrips}
             onRemove={removeTrip}
@@ -164,6 +166,26 @@ function App() {
             <InstagramFeed />
           </Accordion>
         </div>
+
+        {/* Mobile: bottom sheet */}
+        <BottomSheet>
+          <div className="side-content">
+            <SavedTrips
+              trips={savedTrips}
+              onRemove={removeTrip}
+              onUpdateWalkTime={updateWalkTime}
+              onReorder={reorderTrips}
+            />
+
+            <Accordion title="Hall of Shame">
+              <DelayLeaderboard />
+            </Accordion>
+
+            <Accordion title="Community">
+              <InstagramFeed />
+            </Accordion>
+          </div>
+        </BottomSheet>
       </main>
     </div>
   );
