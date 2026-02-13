@@ -101,9 +101,6 @@ body {
   border: none !important;
 }
 
-.bus-marker-animated {
-  transition: transform 1s ease-in-out;
-}
 
 .bus-marker-img {
   width: 100%;
@@ -113,6 +110,17 @@ body {
 
 .bus-marker-img-flipped {
   transform: scaleX(-1);
+}
+
+/* Bus popup */
+.bus-popup-ontime {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.bus-popup-delayed {
+  color: var(--color-warning);
+  font-weight: 600;
 }
 
 /* Stop marker */
@@ -576,8 +584,7 @@ body {
 .saved-trip-card {
   background: var(--color-bg);
   border-radius: var(--radius);
-  padding: 14px 12px;
-  cursor: pointer;
+  padding: 12px;
   transition: background 0.15s;
 }
 
@@ -599,24 +606,24 @@ body {
   margin-top: -2px;
 }
 
-.saved-trip-header {
+/* Top-level row: drag handle | content */
+.saved-trip-row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 10px;
 }
 
 .drag-handle {
   color: var(--color-text-muted);
   opacity: 0.4;
   cursor: grab;
-  padding: 4px 2px;
+  padding: 2px;
   flex-shrink: 0;
   touch-action: none;
   transition: opacity 0.15s;
   display: flex;
   align-items: center;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .drag-handle:hover {
@@ -627,16 +634,26 @@ body {
   cursor: grabbing;
 }
 
-.saved-trip-info {
+/* All card content lives here, right of drag handle */
+.saved-trip-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.saved-trip-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .saved-trip-stop {
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.3;
-  margin-bottom: 4px;
 }
 
 .saved-trip-remove {
@@ -646,31 +663,34 @@ body {
   font-size: 1.25rem;
   cursor: pointer;
   line-height: 1;
-  padding: 8px;
-  min-width: 36px;
-  min-height: 36px;
+  padding: 4px 4px;
+  min-width: 28px;
+  min-height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin: -8px -4px -8px 0;
+  margin: -4px -4px 0 0;
 }
 
 .saved-trip-remove:hover {
   color: var(--color-danger);
 }
 
+/* Meta row: direction tag + countdown inline */
 .saved-trip-meta {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .saved-trip-direction {
   font-size: 0.7rem;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 100px;
+  flex-shrink: 0;
 }
 
 .saved-trip-direction.dir-amsterdam {
@@ -683,21 +703,51 @@ body {
   color: #f87171;
 }
 
+.saved-trip-countdown {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.saved-trip-countdown strong {
+  color: var(--color-text);
+}
+
+/* Walk time + vertrek om grouped row */
+.saved-trip-walkgroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+
 .saved-trip-walktime {
   background: none;
   border: none;
   color: var(--color-text-muted);
   font-size: 0.75rem;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: var(--radius);
-  transition: background 0.15s;
-  min-height: 32px;
+  padding: 2px 0;
+  transition: color 0.15s;
+  flex-shrink: 0;
 }
 
 .saved-trip-walktime:hover {
-  background: var(--color-surface-hover);
   color: var(--color-text);
+}
+
+.saved-trip-leaveby {
+  font-size: 0.8rem;
+  color: var(--color-warning);
+  margin-left: auto;
+}
+
+.saved-trip-leaveby strong {
+  font-size: 0.85rem;
 }
 
 /* Walk time quick-pick chips */
@@ -705,7 +755,6 @@ body {
   background: var(--color-surface);
   border-radius: var(--radius);
   padding: 10px 12px;
-  margin-bottom: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -789,50 +838,6 @@ body {
 
 .walktime-label {
   font-size: 0.7rem;
-  color: var(--color-text-muted);
-}
-
-/* Saved trip departure — hero layout */
-.saved-trip-departure {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.saved-trip-hero {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.saved-trip-hero-label {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  font-weight: 500;
-}
-
-.saved-trip-hero-time {
-  font-size: 1.4rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  color: var(--color-accent);
-}
-
-.saved-trip-secondary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.saved-trip-countdown {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-}
-
-.saved-trip-bustime {
-  font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 
@@ -930,6 +935,10 @@ body {
   margin: 10px 14px !important;
   font-size: 0.85rem !important;
   line-height: 1.5 !important;
+}
+
+.leaflet-popup-close-button {
+  display: none !important;
 }
 
 .leaflet-control-attribution {

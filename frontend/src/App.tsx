@@ -88,7 +88,7 @@ const STOP_TPC_MAP: Record<string, string> = {
 function App() {
   const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
-  const { trips: savedTrips, addTrip, removeTrip, updateWalkTime, reorderTrips } = useSavedTrips();
+  const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
 
   const handleSaveStop = useCallback((stop: StopInfo, direction: number) => {
     const tpc = STOP_TPC_MAP[`${direction}:${stop.name}`];
@@ -134,6 +134,7 @@ function App() {
             savedTrips={savedTrips}
             tpcMap={STOP_TPC_MAP}
             onSaveStop={handleSaveStop}
+            onRemoveStop={removeTripByStop}
           />
           {vehiclesData?.stale && (
             <div className="stale-banner">Data is mogelijk verouderd</div>

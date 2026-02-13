@@ -18,7 +18,7 @@ export const config = {
   defaultDirection: 1,
 
   // Polling intervals (ms)
-  vehiclePollInterval: 15_000,
+  vehiclePollInterval: 30_000,
   departurePollInterval: 30_000,
   gtfsUpdateCheckInterval: 24 * 60 * 60 * 1000, // 24 hours
 

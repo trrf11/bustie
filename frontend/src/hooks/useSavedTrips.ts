@@ -49,6 +49,14 @@ export function useSavedTrips() {
     });
   }, []);
 
+  const removeTripByStop = useCallback((tpc: string, direction: number) => {
+    setTrips((prev) => {
+      const updated = prev.filter((t) => !(t.tpc === tpc && t.direction === direction));
+      persistTrips(updated);
+      return updated;
+    });
+  }, []);
+
   const reorderTrips = useCallback((fromIndex: number, toIndex: number) => {
     setTrips((prev) => {
       if (fromIndex === toIndex) return prev;
@@ -60,5 +68,5 @@ export function useSavedTrips() {
     });
   }, []);
 
-  return { trips, addTrip, removeTrip, updateWalkTime, reorderTrips };
+  return { trips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips };
 }

@@ -110,7 +110,7 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, dragHandleProp
 
   return (
     <div className="saved-trip-card" data-index={index}>
-      <div className="saved-trip-header">
+      <div className="saved-trip-row">
         <div
           className="drag-handle"
           {...dragHandleProps}
@@ -125,104 +125,112 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, dragHandleProp
             <circle cx="8" cy="14" r="1.5" />
           </svg>
         </div>
-        <div className="saved-trip-info">
-          <div className="saved-trip-stop">{trip.stopName}</div>
+
+        <div className="saved-trip-content">
+          {/* Top row: stop name + remove button */}
+          <div className="saved-trip-header">
+            <div className="saved-trip-stop">{trip.stopName}</div>
+            <button
+              className="saved-trip-remove"
+              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              title="Verwijderen"
+            >
+              &times;
+            </button>
+          </div>
+
+          {/* Meta row: direction tag + countdown */}
           <div className="saved-trip-meta">
             <span className={`saved-trip-direction ${trip.direction === 1 ? 'dir-amsterdam' : 'dir-zandvoort'}`}>
               {trip.directionLabel}
             </span>
-            <button
-              className="saved-trip-walktime"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowWalkTimePicker(!showWalkTimePicker);
-                setShowCustomInput(false);
-              }}
-            >
-              {trip.walkTimeMinutes > 0 ? `${trip.walkTimeMinutes} min 🚶` : 'Looptijd instellen'}
-            </button>
+            {loading ? (
+              <span className="saved-trip-countdown">Laden...</span>
+            ) : nextDep ? (
+              <span className="saved-trip-countdown">
+                Volgende bus over <strong>{formatMinutesUntil(nextDep.expected)}</strong>
+                {nextDep.delayed && <span className="delay-badge">+{nextDep.delayMin} min</span>}
+              </span>
+            ) : (
+              <span className="saved-trip-countdown">Geen vertrek</span>
+            )}
           </div>
-        </div>
-        <button
-          className="saved-trip-remove"
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          title="Verwijderen"
-        >
-          &times;
-        </button>
-      </div>
 
-      {/* Walk time quick-pick chips */}
-      {showWalkTimePicker && (
-        <div className="walktime-picker" onClick={(e) => e.stopPropagation()}>
-          <div className="walktime-chips">
-            {WALK_TIME_PRESETS.map((min) => (
+          {/* Walk time + vertrek om grouped together */}
+          {nextDep && nextDep.leaveBy ? (
+            <div className="saved-trip-walkgroup">
               <button
-                key={min}
-                className={`walktime-chip${trip.walkTimeMinutes === min ? ' walktime-chip-active' : ''}`}
-                onClick={() => handlePresetSelect(min)}
+                className="saved-trip-walktime"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowWalkTimePicker(!showWalkTimePicker);
+                  setShowCustomInput(false);
+                }}
               >
-                {min}
+                🚶 {trip.walkTimeMinutes} min
               </button>
-            ))}
-            <button
-              className={`walktime-chip walktime-chip-other${showCustomInput ? ' walktime-chip-active' : ''}`}
-              onClick={() => {
-                setShowCustomInput(true);
-                setCustomWalkTime('');
-              }}
-            >
-              Andere
-            </button>
-          </div>
-          {showCustomInput && (
-            <div className="walktime-custom">
-              <input
-                type="number"
-                min="0"
-                max="60"
-                placeholder="min"
-                value={customWalkTime}
-                onChange={(e) => setCustomWalkTime(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleCustomSubmit(); }}
-                autoFocus
-                className="walktime-custom-input"
-              />
-              <button className="walktime-custom-ok" onClick={handleCustomSubmit}>OK</button>
+              <span className="saved-trip-leaveby">
+                Vertrek om <strong>{formatTime(nextDep.leaveBy)}</strong>
+              </span>
+            </div>
+          ) : (
+            <div className="saved-trip-walkgroup">
+              <button
+                className="saved-trip-walktime"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowWalkTimePicker(!showWalkTimePicker);
+                  setShowCustomInput(false);
+                }}
+              >
+                {trip.walkTimeMinutes > 0 ? `🚶 ${trip.walkTimeMinutes} min` : '🚶 Looptijd'}
+              </button>
             </div>
           )}
-          <span className="walktime-label">minuten looptijd</span>
-        </div>
-      )}
 
-      {/* Departure info — "Vertrek om" is the hero */}
-      <div className="saved-trip-departure">
-        {loading ? (
-          <span className="saved-trip-loading">Laden...</span>
-        ) : nextDep ? (
-          <>
-            {nextDep.leaveBy ? (
-              <div className="saved-trip-hero">
-                <span className="saved-trip-hero-label">Vertrek om</span>
-                <span className="saved-trip-hero-time">{formatTime(nextDep.leaveBy)}</span>
+          {/* Walk time quick-pick chips */}
+          {showWalkTimePicker && (
+            <div className="walktime-picker" onClick={(e) => e.stopPropagation()}>
+              <div className="walktime-chips">
+                {WALK_TIME_PRESETS.map((min) => (
+                  <button
+                    key={min}
+                    className={`walktime-chip${trip.walkTimeMinutes === min ? ' walktime-chip-active' : ''}`}
+                    onClick={() => handlePresetSelect(min)}
+                  >
+                    {min}
+                  </button>
+                ))}
+                <button
+                  className={`walktime-chip walktime-chip-other${showCustomInput ? ' walktime-chip-active' : ''}`}
+                  onClick={() => {
+                    setShowCustomInput(true);
+                    setCustomWalkTime('');
+                  }}
+                >
+                  Andere
+                </button>
               </div>
-            ) : (
-              <div className="saved-trip-hero">
-                <span className="saved-trip-hero-label">Bus om</span>
-                <span className="saved-trip-hero-time">{formatTime(nextDep.expected)}</span>
-              </div>
-            )}
-            <div className="saved-trip-secondary">
-              <span className="saved-trip-countdown">Bus over {formatMinutesUntil(nextDep.expected)}</span>
-              {nextDep.delayed && <span className="delay-badge">+{nextDep.delayMin} min</span>}
-              {nextDep.leaveBy && (
-                <span className="saved-trip-bustime">Bus om {formatTime(nextDep.expected)}</span>
+              {showCustomInput && (
+                <div className="walktime-custom">
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    placeholder="min"
+                    value={customWalkTime}
+                    onChange={(e) => setCustomWalkTime(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleCustomSubmit(); }}
+                    autoFocus
+                    className="walktime-custom-input"
+                  />
+                  <button className="walktime-custom-ok" onClick={handleCustomSubmit}>OK</button>
+                </div>
               )}
+              <span className="walktime-label">minuten looptijd</span>
             </div>
-          </>
-        ) : (
-          <span className="saved-trip-none">Geen vertrek gepland</span>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

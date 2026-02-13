@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useMemo, useState } from 'react';
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { StopPopup } from './StopPopup';
 import type { VehiclesResponse, StopInfo, SavedTrip } from '../types';
@@ -9,23 +9,28 @@ import 'leaflet/dist/leaflet.css';
 // Bus marker icons — bus80.png faces LEFT by default (towards Zandvoort).
 // Direction 1 (→ Amsterdam) needs the flipped (right-facing) version.
 // Direction 2 (→ Zandvoort) uses the original (left-facing) image.
-// Uses L.DivIcon so the <img> is a child element — Leaflet's inline transform on the
-// wrapper div won't overwrite our scaleX(-1) on the img.
-const busIconToAmsterdam = new L.DivIcon({
-  className: 'bus-marker bus-marker-animated',
-  html: '<img src="/bus80.png" class="bus-marker-img bus-marker-img-flipped">',
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-  popupAnchor: [0, -20],
-});
+// Icons are sized dynamically based on zoom level.
+const BASE_ZOOM = 12;
+const BASE_ICON_SIZE = 40;
+const MIN_ICON_SIZE = 32;
+const MAX_ICON_SIZE = 56;
 
-const busIconToZandvoort = new L.DivIcon({
-  className: 'bus-marker bus-marker-animated',
-  html: '<img src="/bus80.png" class="bus-marker-img">',
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-  popupAnchor: [0, -20],
-});
+function getBusIconSize(zoom: number): number {
+  // Scale gently: ~4px per zoom level
+  const size = BASE_ICON_SIZE + (zoom - BASE_ZOOM) * 4;
+  return Math.max(MIN_ICON_SIZE, Math.min(MAX_ICON_SIZE, size));
+}
+
+function createBusIcon(direction: number, size: number): L.DivIcon {
+  const flipped = direction === 1;
+  return new L.DivIcon({
+    className: 'bus-marker',
+    html: `<img src="/bus80.png" class="bus-marker-img${flipped ? ' bus-marker-img-flipped' : ''}">`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
 
 // Stop marker icon — 14px dot with generous tap area
 const stopIcon = new L.DivIcon({
@@ -46,6 +51,7 @@ interface BusMapProps {
   savedTrips: SavedTrip[];
   tpcMap: Record<string, string>;
   onSaveStop: (stop: StopInfo, direction: number) => void;
+  onRemoveStop: (tpc: string, direction: number) => void;
 }
 
 function FitBounds({ data }: { data: VehiclesResponse | null }) {
@@ -77,7 +83,52 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
   return null;
 }
 
-export function BusMap({ data, directionFilter, savedTrips, tpcMap, onSaveStop }: BusMapProps) {
+/**
+ * Isolated bus vehicle markers — only this component re-renders on zoom
+ * changes, keeping Polylines and stop Markers stable during pinch-zoom.
+ * Listens to `zoomend` (fires once after gesture) instead of `zoom`
+ * (fires every frame) to avoid fighting Leaflet's internal animation.
+ */
+function BusVehicleMarkers({ vehicles }: { vehicles: VehiclesResponse['vehicles'] }) {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+
+  useMapEvents({
+    zoomend() {
+      setZoom(map.getZoom());
+    },
+  });
+
+  const busIcons = useMemo(() => {
+    const size = getBusIconSize(zoom);
+    return {
+      toAmsterdam: createBusIcon(1, size),
+      toZandvoort: createBusIcon(2, size),
+    };
+  }, [zoom]);
+
+  return (
+    <>
+      {vehicles.map((vehicle) => (
+        <Marker
+          key={vehicle.vehicleId}
+          position={[vehicle.latitude, vehicle.longitude]}
+          icon={vehicle.direction === 1 ? busIcons.toAmsterdam : busIcons.toZandvoort}
+        >
+          <Popup>
+            {vehicle.direction === 1 ? 'Richting Amsterdam' : vehicle.direction === 2 ? 'Richting Zandvoort' : 'Onbekende richting'}
+            <br />
+            {vehicle.delaySeconds > 0
+              ? <span className="bus-popup-delayed">{Math.round(vehicle.delaySeconds / 60)} min vertraagd</span>
+              : <span className="bus-popup-ontime">Op tijd</span>}
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  );
+}
+
+function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onRemoveStop }: BusMapProps) {
   const dir1Active = directionFilter === 'all' || directionFilter === 1;
   const dir2Active = directionFilter === 'all' || directionFilter === 2;
 
@@ -92,12 +143,7 @@ export function BusMap({ data, directionFilter, savedTrips, tpcMap, onSaveStop }
   }
 
   return (
-    <MapContainer
-      center={DEFAULT_CENTER}
-      zoom={DEFAULT_ZOOM}
-      className="bus-map"
-      zoomControl={false}
-    >
+    <>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -137,6 +183,7 @@ export function BusMap({ data, directionFilter, savedTrips, tpcMap, onSaveStop }
               direction={1}
               savedTrips={savedTrips}
               onSave={() => onSaveStop(stop, 1)}
+              onRemove={() => { const t = getTpc(stop, 1); if (t) onRemoveStop(t, 1); }}
             />
           </Popup>
         </Marker>
@@ -156,31 +203,27 @@ export function BusMap({ data, directionFilter, savedTrips, tpcMap, onSaveStop }
               direction={2}
               savedTrips={savedTrips}
               onSave={() => onSaveStop(stop, 2)}
+              onRemove={() => { const t = getTpc(stop, 2); if (t) onRemoveStop(t, 2); }}
             />
           </Popup>
         </Marker>
       ))}
 
-      {/* Bus vehicle markers */}
-      {filteredVehicles.map((vehicle) => (
-        <Marker
-          key={vehicle.vehicleId}
-          position={[vehicle.latitude, vehicle.longitude]}
-          icon={vehicle.direction === 1 ? busIconToAmsterdam : busIconToZandvoort}
-        >
-          <Popup>
-            <strong>Bus 80</strong> #{vehicle.vehicleId}
-            <br />
-            {vehicle.direction === 1 ? 'Richting Amsterdam' : vehicle.direction === 2 ? 'Richting Zandvoort' : 'Onbekende richting'}
-            <br />
-            {vehicle.delaySeconds > 0
-              ? `${Math.round(vehicle.delaySeconds / 60)} min vertraging`
-              : 'Op tijd'}
-            <br />
-            <small>{vehicle.currentStatus}</small>
-          </Popup>
-        </Marker>
-      ))}
+      {/* Bus vehicle markers — isolated to prevent zoom jitter */}
+      <BusVehicleMarkers vehicles={filteredVehicles} />
+    </>
+  );
+}
+
+export function BusMap(props: BusMapProps) {
+  return (
+    <MapContainer
+      center={DEFAULT_CENTER}
+      zoom={DEFAULT_ZOOM}
+      className="bus-map"
+      zoomControl={false}
+    >
+      <MapContent {...props} />
     </MapContainer>
   );
 }

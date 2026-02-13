@@ -109,11 +109,19 @@ export function startPolling(): void {
     `Starting polling: vehicles every ${config.vehiclePollInterval / 1000}s, departures every ${config.departurePollInterval / 1000}s`
   );
 
-  // Initial polls
-  pollVehicles();
-  pollDepartures();
+  // Recursive setTimeout so the backoff interval is actually respected
+  function scheduleVehiclePoll() {
+    pollVehicles().finally(() => {
+      setTimeout(scheduleVehiclePoll, vehicleBackoff);
+    });
+  }
 
-  // Recurring polls
-  setInterval(() => pollVehicles(), config.vehiclePollInterval);
-  setInterval(() => pollDepartures(), config.departurePollInterval);
+  function scheduleDeparturePoll() {
+    pollDepartures().finally(() => {
+      setTimeout(scheduleDeparturePoll, departureBackoff);
+    });
+  }
+
+  scheduleVehiclePoll();
+  scheduleDeparturePoll();
 }

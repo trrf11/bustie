@@ -7,6 +7,7 @@ interface StopPopupProps {
   direction: number;
   savedTrips: SavedTrip[];
   onSave: () => void;
+  onRemove: () => void;
 }
 
 function formatTime(isoString: string): string {
@@ -21,7 +22,7 @@ function formatMinutesUntil(isoString: string): string {
   return `${diff} min`;
 }
 
-export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: StopPopupProps) {
+export function StopPopup({ stopName, tpc, direction, savedTrips, onSave, onRemove }: StopPopupProps) {
   const [nextDep, setNextDep] = useState<{
     expected: string;
     leaveBy: string | null;
@@ -94,8 +95,8 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: Stop
         <strong className="stop-popup-name">{stopName}</strong>
         <button
           className={`stop-popup-save${isSaved ? ' stop-popup-saved' : ''}`}
-          onClick={(e) => { e.stopPropagation(); if (!isSaved) onSave(); }}
-          title={isSaved ? 'Opgeslagen' : 'Halte opslaan'}
+          onClick={(e) => { e.stopPropagation(); if (isSaved) { onRemove(); } else { onSave(); } }}
+          title={isSaved ? 'Halte verwijderen' : 'Halte opslaan'}
         >
           {isSaved ? (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -126,7 +127,7 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: Stop
             </span>
           ) : (
             <span className="stop-popup-time">
-              Bus om <strong>{formatTime(nextDep.expected)}</strong>
+              <strong>{formatTime(nextDep.expected)}</strong>
             </span>
           )}
         </div>
