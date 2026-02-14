@@ -113,7 +113,6 @@ body {
 .bus-marker {
   background: none !important;
   border: none !important;
-  transition: transform 1s ease-in-out;
 }
 
 
