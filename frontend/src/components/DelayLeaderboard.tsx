@@ -58,10 +58,6 @@ export function DelayLeaderboard() {
             <span className="stat-label">avg delay (min)</span>
           </div>
           <div className="stat">
-            <span className="stat-value">{data.onTimePercentage}%</span>
-            <span className="stat-label">on time</span>
-          </div>
-          <div className="stat">
             <span className="stat-value">{data.totalTripsTracked}</span>
             <span className="stat-label">trips tracked</span>
           </div>

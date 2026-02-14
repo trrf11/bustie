@@ -162,7 +162,7 @@ function App() {
             <DelayLeaderboard />
           </Accordion>
 
-          <Accordion title="Community">
+          <Accordion title="Bus80 spotter">
             <InstagramFeed />
           </Accordion>
         </div>
@@ -181,7 +181,7 @@ function App() {
               <DelayLeaderboard />
             </Accordion>
 
-            <Accordion title="Community">
+            <Accordion title="Bus80 spotter">
               <InstagramFeed />
             </Accordion>
           </div>

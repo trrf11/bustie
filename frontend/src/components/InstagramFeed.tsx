@@ -7,7 +7,7 @@ const INSTAGRAM_POST_URLS: string[] = [
   // 'https://www.instagram.com/p/XXXX/',
 ];
 
-const INSTAGRAM_PAGE_URL = 'https://www.instagram.com/'; // Replace with actual bus 80 Instagram page
+const INSTAGRAM_PAGE_URL = 'https://www.instagram.com/bus80spotter/';
 
 export function InstagramFeed() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,7 +28,7 @@ export function InstagramFeed() {
   return (
     <div className="instagram-section">
       <div className="instagram-header">
-        <h3>Bus 80 Community</h3>
+        <h3>Bus80 spotter</h3>
         <a
           href={INSTAGRAM_PAGE_URL}
           target="_blank"
