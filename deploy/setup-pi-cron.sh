@@ -18,6 +18,15 @@ if [ -d "$DEPLOY_DIR/.git" ]; then
   echo "==> Repository already exists at $DEPLOY_DIR, pulling latest..."
   cd "$DEPLOY_DIR"
   git pull origin main
+elif [ -d "$DEPLOY_DIR" ]; then
+  echo "==> Directory exists but is not a git repo (from push-to-deploy)."
+  echo "==> Initializing git and connecting to GitHub..."
+  cd "$DEPLOY_DIR"
+  git init
+  git remote add origin "$REPO_URL"
+  git fetch origin
+  git reset --hard origin/main
+  git branch --set-upstream-to=origin/main main
 else
   echo "==> Cloning repository..."
   git clone "$REPO_URL" "$DEPLOY_DIR"
