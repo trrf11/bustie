@@ -9,14 +9,19 @@ export function DelayLeaderboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     fetch(`/api/stats/delays?period=${period}`)
       .then((res) => res.json())
       .then((json: DelayStatsResponse) => {
-        setData(json);
-        setLoading(false);
+        if (!cancelled) {
+          setData(json);
+          setLoading(false);
+        }
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [period]);
 
   function formatTime(isoString: string): string {
@@ -38,7 +43,7 @@ export function DelayLeaderboard() {
             <button
               key={p}
               className={`period-tab ${period === p ? 'active' : ''}`}
-              onClick={() => setPeriod(p)}
+              onClick={() => { setLoading(true); setPeriod(p); }}
             >
               {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
             </button>

@@ -14,13 +14,14 @@ export function InstagramFeed() {
 
   useEffect(() => {
     // Load Instagram embed script
-    if (INSTAGRAM_POST_URLS.length > 0 && !(window as any).instgrm) {
+    const win = window as Window & { instgrm?: { Embeds: { process: () => void } } };
+    if (INSTAGRAM_POST_URLS.length > 0 && !win.instgrm) {
       const script = document.createElement('script');
       script.src = 'https://www.instagram.com/embed.js';
       script.async = true;
       document.body.appendChild(script);
-    } else if ((window as any).instgrm) {
-      (window as any).instgrm.Embeds.process();
+    } else if (win.instgrm) {
+      win.instgrm.Embeds.process();
     }
   }, []);
 
