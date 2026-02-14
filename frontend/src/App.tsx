@@ -106,8 +106,8 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Bus 80</h1>
-        <span className="app-subtitle">Zandvoort — Amsterdam</span>
+        <img src="/bus80-logo.png" alt="Bustie logo" className="app-logo" />
+        <h1>Hey, bustie!</h1>
         {vehiclesData && (() => {
           const count = directionFilter === 'all'
             ? vehiclesData.vehicles.length

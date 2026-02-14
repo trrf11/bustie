@@ -65,15 +65,16 @@ body {
   flex-shrink: 0;
 }
 
+.app-logo {
+  height: 32px;
+  width: auto;
+  flex-shrink: 0;
+}
+
 .app-header h1 {
   font-size: 1.25rem;
   font-weight: 700;
   white-space: nowrap;
-}
-
-.app-subtitle {
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
 }
 
 .vehicle-count {
@@ -285,6 +286,8 @@ body {
   left: 0;
   right: 0;
   z-index: 1001;
+  display: flex;
+  flex-direction: column;
   /* Must match viewport height so vaul's snap-point offset math works correctly.
      Snap fractions (0.12, 0.45, 0.8) are relative to this height.
      vh fallback for Safari < 15.4 which doesn't support dvh. */
@@ -317,10 +320,11 @@ body {
   display: none; /* Chrome, Safari, Opera */
 }
 
-/* Inside the bottom sheet, side-content shouldn't set its own overflow */
+/* Inside the bottom sheet, side-content is a static container —
+   .bottom-sheet-body handles all scrolling */
 .bottom-sheet .side-content {
   flex: none;
-  overflow-y: visible;
+  overflow: visible;
 }
 
 /* Vaul overlay — we don't want one since the map should stay interactive */
