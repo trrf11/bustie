@@ -1,0 +1,11 @@
+{
+  "name": "bus80",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time Bus 80 tracker (Zandvoort - Amsterdam)",
+  "scripts": {
+    "version:patch": "npm version patch -m 'v%s' && git push --follow-tags origin main",
+    "version:minor": "npm version minor -m 'v%s' && git push --follow-tags origin main",
+    "version:major": "npm version major -m 'v%s' && git push --follow-tags origin main"
+  }
+}

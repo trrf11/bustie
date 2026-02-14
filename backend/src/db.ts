@@ -9,11 +9,12 @@ export function getDb(): Database.Database {
   return db;
 }
 
-export function initDb(): void {
-  const dbDir = dirname(config.dbPath);
+export function initDb(customPath?: string): void {
+  const dbPath = customPath || config.dbPath;
+  const dbDir = dirname(dbPath);
   if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
 
-  db = new Database(config.dbPath);
+  db = new Database(dbPath);
 
   // Enable WAL mode for concurrent read/write
   db.pragma('journal_mode = WAL');
@@ -47,7 +48,7 @@ export function initDb(): void {
     WHERE recorded_at < datetime('now', '-30 days')
   `);
 
-  console.log(`SQLite database initialized at ${config.dbPath} (WAL mode)`);
+  console.log(`SQLite database initialized at ${dbPath} (WAL mode)`);
 }
 
 export function recordDelay(
