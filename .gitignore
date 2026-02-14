@@ -5,3 +5,10 @@ dist/
 *.db-wal
 *.db-shm
 coverage/
+
+# Project planning, architecture, and design docs (local only)
+CLAUDE.md
+.interface-design/
+*.design.md
+*.architecture.md
+*.planning.md
