@@ -566,51 +566,6 @@ body {
   background: var(--color-surface);
 }
 
-.instagram-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.instagram-header h3 {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.instagram-link {
-  color: var(--color-primary-light);
-  font-size: 0.8rem;
-  text-decoration: none;
-}
-
-.instagram-link:hover {
-  text-decoration: underline;
-}
-
-.instagram-placeholder {
-  text-align: center;
-  padding: 24px 16px;
-  background: var(--color-bg);
-  border-radius: var(--radius);
-}
-
-.instagram-placeholder p {
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  margin-bottom: 12px;
-}
-
-.instagram-cta {
-  color: var(--color-primary-light);
-  font-size: 0.85rem;
-  text-decoration: none;
-}
-
-.instagram-cta:hover {
-  text-decoration: underline;
-}
-
 .instagram-embeds {
   display: flex;
   gap: 16px;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { StopPopup } from './StopPopup';
@@ -56,9 +56,10 @@ interface BusMapProps {
 
 function FitBounds({ data }: { data: VehiclesResponse | null }) {
   const map = useMap();
+  const hasFitted = useRef(false);
 
   useEffect(() => {
-    if (!data) return;
+    if (!data || hasFitted.current) return;
 
     const allPoints: [number, number][] = [];
 
@@ -81,10 +82,79 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
       const isMobile = window.innerWidth < 768;
       const bottomPad = isMobile ? Math.round(window.innerHeight * 0.45) : 30;
       map.fitBounds(allPoints, { paddingTopLeft: [30, 30], paddingBottomRight: [30, bottomPad] });
+      hasFitted.current = true;
     }
-  }, [map, data?.route.direction1.shape.length]);
+  }, [map, data]);
 
   return null;
+}
+
+/**
+ * Animated bus marker — smoothly interpolates position updates via
+ * Leaflet's setLatLng() + requestAnimationFrame. This avoids CSS
+ * transitions on the marker wrapper (which break during zoom because
+ * Leaflet uses the same CSS transform for repositioning).
+ */
+const EASE_DURATION = 1000; // ms
+
+function AnimatedBusMarker({ vehicle, icon }: { vehicle: VehiclesResponse['vehicles'][0]; icon: L.DivIcon }) {
+  const markerRef = useRef<L.Marker | null>(null);
+  const animRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
+
+    const target = L.latLng(vehicle.latitude, vehicle.longitude);
+    const start = marker.getLatLng();
+
+    // Skip animation if marker hasn't moved (or first render)
+    if (start.lat === target.lat && start.lng === target.lng) return;
+
+    // Cancel any running animation
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+
+    // Capture non-null reference for the animation closure
+    const m = marker;
+    const startTime = performance.now();
+
+    function animate(now: number) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / EASE_DURATION, 1);
+      // Ease-in-out cubic
+      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      const lat = start.lat + (target.lat - start.lat) * ease;
+      const lng = start.lng + (target.lng - start.lng) * ease;
+      m.setLatLng([lat, lng]);
+
+      if (t < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      }
+    }
+
+    animRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [vehicle.latitude, vehicle.longitude]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[vehicle.latitude, vehicle.longitude]}
+      icon={icon}
+    >
+      <Popup>
+        {vehicle.direction === 1 ? 'Richting Amsterdam' : vehicle.direction === 2 ? 'Richting Zandvoort' : 'Onbekende richting'}
+        <br />
+        {vehicle.delaySeconds > 0
+          ? <span className="bus-popup-delayed">{Math.round(vehicle.delaySeconds / 60)} min vertraagd</span>
+          : <span className="bus-popup-ontime">Op tijd</span>}
+      </Popup>
+    </Marker>
+  );
 }
 
 /**
@@ -114,19 +184,11 @@ function BusVehicleMarkers({ vehicles }: { vehicles: VehiclesResponse['vehicles'
   return (
     <>
       {vehicles.map((vehicle) => (
-        <Marker
+        <AnimatedBusMarker
           key={vehicle.vehicleId}
-          position={[vehicle.latitude, vehicle.longitude]}
+          vehicle={vehicle}
           icon={vehicle.direction === 1 ? busIcons.toAmsterdam : busIcons.toZandvoort}
-        >
-          <Popup>
-            {vehicle.direction === 1 ? 'Richting Amsterdam' : vehicle.direction === 2 ? 'Richting Zandvoort' : 'Onbekende richting'}
-            <br />
-            {vehicle.delaySeconds > 0
-              ? <span className="bus-popup-delayed">{Math.round(vehicle.delaySeconds / 60)} min vertraagd</span>
-              : <span className="bus-popup-ontime">Op tijd</span>}
-          </Popup>
-        </Marker>
+        />
       ))}
     </>
   );

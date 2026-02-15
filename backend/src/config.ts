@@ -6,6 +6,7 @@ export const config = {
 
   // GTFS-RT feeds
   gtfsRtVehiclePositionsUrl: 'https://gtfs.ovapi.nl/nl/vehiclePositions.pb',
+  gtfsRtTripUpdatesUrl: 'https://gtfs.ovapi.nl/nl/tripUpdates.pb',
   gtfsStaticUrl: 'http://gtfs.ovapi.nl/nl/gtfs-nl.zip',
 
   // Bus 80 identifiers (used for OVapi REST filtering)

@@ -61,7 +61,7 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, dragHandleProp
 
         const now = Date.now();
         const upcoming = data.departures.find(
-          (d) => new Date(d.expectedDeparture).getTime() > now
+          (d) => d.source === 'realtime' || new Date(d.expectedDeparture).getTime() > now
         );
 
         if (upcoming) {

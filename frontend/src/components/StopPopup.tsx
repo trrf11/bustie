@@ -55,8 +55,10 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave, onRemo
         if (cancelled) return;
 
         const now = Date.now();
+        // Show realtime departures even if expected time has barely passed —
+        // the backend only sends these when the bus hasn't actually departed yet.
         const upcoming = data.departures.find(
-          (d) => new Date(d.expectedDeparture).getTime() > now
+          (d) => d.source === 'realtime' || new Date(d.expectedDeparture).getTime() > now
         );
 
         if (upcoming) {

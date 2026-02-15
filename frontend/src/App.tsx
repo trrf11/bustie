@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { BusMap } from './components/BusMap';
 import { DirectionFilter, type DirectionFilterValue } from './components/DirectionFilter';
 import { SavedTrips } from './components/SavedTrips';
-import { DelayLeaderboard } from './components/DelayLeaderboard';
+// import { DelayLeaderboard } from './components/DelayLeaderboard';
 import { InstagramFeed } from './components/InstagramFeed';
 import { Accordion } from './components/Accordion';
 import { BottomSheet } from './components/BottomSheet';
@@ -158,9 +158,11 @@ function App() {
             onReorder={reorderTrips}
           />
 
+          {/* Hall of Shame — temporarily hidden
           <Accordion title="Hall of Shame">
             <DelayLeaderboard />
           </Accordion>
+          */}
 
           <Accordion title="Bus80 spotter">
             <InstagramFeed />
@@ -177,9 +179,11 @@ function App() {
               onReorder={reorderTrips}
             />
 
+            {/* Hall of Shame — temporarily hidden
             <Accordion title="Hall of Shame">
               <DelayLeaderboard />
             </Accordion>
+            */}
 
             <Accordion title="Bus80 spotter">
               <InstagramFeed />

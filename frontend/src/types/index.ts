@@ -44,6 +44,7 @@ export interface Departure {
   isDelayed: boolean;
   destination: string;
   lineDirection: number;
+  source?: 'realtime' | 'scheduled';
 }
 
 export interface DeparturesResponse {

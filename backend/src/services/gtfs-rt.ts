@@ -32,6 +32,102 @@ async function ensureProtoLoaded(): Promise<void> {
 /**
  * Fetch and decode GTFS-RT vehicle positions, filtering for bus 80.
  */
+export interface StopTimeUpdate {
+  stopId: string;
+  stopSequence: number;
+  arrivalTime: number | null;  // Unix timestamp
+  arrivalDelay: number;        // seconds
+  departureTime: number | null;
+  departureDelay: number;
+}
+
+export interface TripUpdate {
+  tripId: string;
+  routeId: string;
+  directionId: number | null;
+  stopTimeUpdates: StopTimeUpdate[];
+}
+
+/**
+ * Fetch and decode GTFS-RT trip updates, filtering for bus 80.
+ */
+export async function fetchTripUpdates(): Promise<TripUpdate[]> {
+  await ensureProtoLoaded();
+  if (!FeedMessage) throw new Error('Protobuf not loaded');
+
+  const res = await fetch(config.gtfsRtTripUpdatesUrl, {
+    headers: {
+      'User-Agent': config.userAgent,
+      'Accept-Encoding': 'gzip',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`GTFS-RT trip updates returned ${res.status}`);
+  }
+
+  const buffer = await res.arrayBuffer();
+  const feed = FeedMessage.decode(new Uint8Array(buffer)) as any;
+
+  const tripUpdates: TripUpdate[] = [];
+
+  for (const entity of feed.entity || []) {
+    const tu = entity.tripUpdate;
+    if (!tu) continue;
+
+    const trip = tu.trip;
+    if (!trip) continue;
+
+    const routeId = trip.routeId || '';
+    const tripId = trip.tripId || '';
+
+    // Filter for bus 80
+    if (!isKnownRouteId(routeId) && !isKnownTripId(tripId)) continue;
+
+    const directionId = typeof trip.directionId === 'number' ? trip.directionId : null;
+
+    const stopTimeUpdates: StopTimeUpdate[] = [];
+    for (const stu of tu.stopTimeUpdate || []) {
+      const stopId = stu.stopId || '';
+      if (!stopId) continue;
+
+      const arrival = stu.arrival;
+      const departure = stu.departure;
+
+      stopTimeUpdates.push({
+        stopId,
+        stopSequence: stu.stopSequence ?? 0,
+        arrivalTime: arrival?.time ? toNumber(arrival.time) : null,
+        arrivalDelay: arrival?.delay ?? 0,
+        departureTime: departure?.time ? toNumber(departure.time) : null,
+        departureDelay: departure?.delay ?? 0,
+      });
+    }
+
+    if (stopTimeUpdates.length > 0) {
+      tripUpdates.push({
+        tripId,
+        routeId,
+        directionId,
+        stopTimeUpdates,
+      });
+    }
+  }
+
+  return tripUpdates;
+}
+
+function toNumber(val: any): number {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') return parseInt(val, 10);
+  // protobuf Long object
+  if (val && typeof val.toNumber === 'function') return val.toNumber();
+  return 0;
+}
+
+/**
+ * Fetch and decode GTFS-RT vehicle positions, filtering for bus 80.
+ */
 export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
   await ensureProtoLoaded();
   if (!FeedMessage) throw new Error('Protobuf not loaded');
