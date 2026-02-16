@@ -5,6 +5,7 @@ dist/
 *.db-wal
 *.db-shm
 coverage/
+.env
 
 # Project planning, architecture, and design docs (local only)
 CLAUDE.md
