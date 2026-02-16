@@ -6,6 +6,7 @@ interface SavedTripsProps {
   onRemove: (id: string) => void;
   onUpdateWalkTime: (id: string, walkTimeMinutes: number) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  onSelectStop?: (trip: SavedTrip) => void;
 }
 
 const WALK_TIME_PRESETS = [1, 2, 5, 10, 15];
@@ -22,11 +23,12 @@ function formatMinutesUntil(isoString: string): string {
   return `${diff} min`;
 }
 
-function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, dragHandleProps }: {
+function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, dragHandleProps }: {
   trip: SavedTrip;
   index: number;
   onRemove: () => void;
   onUpdateWalkTime: (walkTime: number) => void;
+  onSelect?: () => void;
   dragHandleProps: {
     onPointerDown: (e: React.PointerEvent) => void;
     onTouchStart: (e: React.TouchEvent) => void;
@@ -109,7 +111,7 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, dragHandleProp
   }
 
   return (
-    <div className="saved-trip-card" data-index={index}>
+    <div className="saved-trip-card" data-index={index} onClick={onSelect} style={{ cursor: onSelect ? 'pointer' : undefined }}>
       <div className="saved-trip-row">
         <div
           className="drag-handle"
@@ -236,7 +238,7 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, dragHandleProp
   );
 }
 
-export function SavedTrips({ trips, onRemove, onUpdateWalkTime, onReorder }: SavedTripsProps) {
+export function SavedTrips({ trips, onRemove, onUpdateWalkTime, onReorder, onSelectStop }: SavedTripsProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -338,6 +340,7 @@ export function SavedTrips({ trips, onRemove, onUpdateWalkTime, onReorder }: Sav
               index={i}
               onRemove={() => onRemove(trip.id)}
               onUpdateWalkTime={(wt) => onUpdateWalkTime(trip.id, wt)}
+              onSelect={onSelectStop ? () => onSelectStop(trip) : undefined}
               dragHandleProps={{
                 onPointerDown: handlePointerDown(i),
                 onTouchStart: handleTouchStart(i),

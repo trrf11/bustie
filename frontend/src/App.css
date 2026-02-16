@@ -69,6 +69,8 @@ body {
   height: 32px;
   width: auto;
   flex-shrink: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-header h1 {
@@ -263,6 +265,24 @@ body {
   backdrop-filter: blur(4px);
 }
 
+.update-pill {
+  position: absolute;
+  bottom: 14dvh;
+  right: 12px;
+  z-index: 1000;
+  background: rgba(18, 42, 45, 0.85);
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 100px;
+  border: 1px solid var(--color-border);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
 /* === Side Content === */
 .side-content {
   flex: 1;
@@ -285,50 +305,49 @@ body {
   left: 0;
   right: 0;
   z-index: 1001;
-  display: flex;
-  flex-direction: column;
-  /* Must match viewport height so vaul's snap-point offset math works correctly.
-     Snap fractions (0.12, 0.45, 0.8) are relative to this height.
-     vh fallback for Safari < 15.4 which doesn't support dvh. */
-  height: 100vh;
-  height: 100dvh;
+  --sheet-max-height: 85dvh;
+  --sheet-background: var(--color-surface);
+  --sheet-border-radius: var(--radius-lg);
+  /* Safe area padding for phones with home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Allow clicks to pass through to the map */
+  pointer-events: none;
+}
+
+/* Make the sheet surface itself interactive */
+.bottom-sheet::part(sheet) {
+  pointer-events: all;
   background: var(--color-surface);
   border-top-left-radius: var(--radius-lg);
   border-top-right-radius: var(--radius-lg);
-  outline: none;
-  /* Safe area padding for phones with home indicator */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.bottom-sheet > [data-vaul-handle-wrapper] {
-  flex-shrink: 0;
+/* Style the drag handle area */
+.bottom-sheet::part(header) {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 6px;
+  cursor: grab;
 }
 
-.bottom-sheet-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  /* Hide scrollbar but keep scrolling */
+.bottom-sheet::part(header):active {
+  cursor: grabbing;
+}
+
+/* Inner content: hide scrollbar but keep scrolling */
+.bottom-sheet::part(content) {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
 
-.bottom-sheet-body::-webkit-scrollbar {
+.bottom-sheet::part(content)::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
 
-/* Inside the bottom sheet, side-content is a static container —
-   .bottom-sheet-body handles all scrolling */
+/* Inside the bottom sheet, side-content is a static container */
 .bottom-sheet .side-content {
   flex: none;
   overflow: visible;
-}
-
-/* Vaul overlay — we don't want one since the map should stay interactive */
-[vaul-overlay] {
-  display: none !important;
 }
 
 .delay-badge {
@@ -899,8 +918,12 @@ body {
     border-left: 1px solid var(--color-border);
   }
 
-  [data-vaul-drawer] {
+  .bottom-sheet {
     display: none !important;
+  }
+
+  .update-pill {
+    bottom: 12px;
   }
 
   .leaderboard-header {
@@ -982,4 +1005,64 @@ body {
 
 .leaflet-control-attribution a {
   color: var(--color-primary-light) !important;
+}
+
+/* === Community Overlay === */
+.community-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  animation: community-slide-in 0.25s ease-out;
+}
+
+@keyframes community-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.community-overlay-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.community-overlay-back {
+  background: none;
+  border: none;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: var(--radius);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.community-overlay-back:hover {
+  background: var(--color-surface-hover);
+}
+
+.community-overlay-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.community-overlay-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }

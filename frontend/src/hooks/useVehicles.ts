@@ -7,6 +7,7 @@ export function useVehicles() {
   const [data, setData] = useState<VehiclesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastFetchTime, setLastFetchTime] = useState(Date.now());
 
   const fetchVehicles = useCallback(async () => {
     try {
@@ -15,6 +16,7 @@ export function useVehicles() {
       const json: VehiclesResponse = await res.json();
       setData(json);
       setError(null);
+      setLastFetchTime(Date.now());
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -28,5 +30,5 @@ export function useVehicles() {
     return () => clearInterval(interval);
   }, [fetchVehicles]);
 
-  return { data, error, loading };
+  return { data, error, loading, lastFetchTime, pollInterval: POLL_INTERVAL };
 }

@@ -1,54 +1,46 @@
-import { useState, useCallback, type ReactNode } from 'react';
-import { Drawer } from 'vaul';
+import { type ReactNode, forwardRef, useImperativeHandle, useRef } from 'react';
+import { BottomSheet as PureBottomSheet } from 'pure-web-bottom-sheet/react';
+
+export interface BottomSheetHandle {
+  collapse: () => void;
+}
 
 interface BottomSheetProps {
   children: ReactNode;
 }
 
-const SNAP_POINTS = [0.12, 0.45, 0.8] as const;
-const DEFAULT_SNAP = 0.45;
-
 /**
- * Mobile bottom sheet using vaul's Drawer.
- *
- * Vaul handles all drag/scroll logic natively via its shouldDrag function:
- *   - If a scrollable element has scrollTop > 0 → scroll, don't drag
- *   - If scrollTop === 0 → drag the drawer
- *
- * The body element has a max-height matching the visible drawer area
- * so content overflows and vaul can detect the scrollable container.
+ * Mobile bottom sheet using pure-web-bottom-sheet.
+ * Three fixed snap points: peek (12dvh), mid (45dvh), full (85dvh).
  */
-export function BottomSheet({ children }: BottomSheetProps) {
-  const [snap, setSnap] = useState<number | string | null>(DEFAULT_SNAP);
+export const BottomSheet = forwardRef<BottomSheetHandle, BottomSheetProps>(
+  function BottomSheet({ children }, ref) {
+    const sheetRef = useRef<HTMLElement>(null);
 
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (!open) return;
-  }, []);
+    useImperativeHandle(ref, () => ({
+      collapse() {
+        // Snap to peek by scrolling the sheet to top
+        const el = sheetRef.current;
+        if (el) {
+          el.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      },
+    }));
 
-  // Calculate visible height based on current snap so the body
-  // element overflows and vaul's shouldDrag can detect it as scrollable.
-  const snapFraction = typeof snap === 'number' ? snap : DEFAULT_SNAP;
-  const bodyMaxHeight = `calc(${snapFraction * 100}dvh - 28px)`;
+    return (
+      <PureBottomSheet
+        ref={sheetRef as React.RefObject<never>}
+        tabIndex={0}
+        nested-scroll
+        expand-to-scroll
+        className="bottom-sheet"
+      >
+        <div slot="snap" style={{ '--snap': '12dvh' } as React.CSSProperties} />
+        <div slot="snap" style={{ '--snap': '45dvh' } as React.CSSProperties} className="initial" />
+        <div slot="snap" style={{ '--snap': '85dvh' } as React.CSSProperties} />
 
-  return (
-    <Drawer.Root
-      open
-      onOpenChange={handleOpenChange}
-      modal={false}
-      snapPoints={SNAP_POINTS as unknown as number[]}
-      activeSnapPoint={snap}
-      setActiveSnapPoint={setSnap}
-      dismissible={false}
-      noBodyStyles
-    >
-      <Drawer.Portal>
-        <Drawer.Content className="bottom-sheet" aria-describedby={undefined}>
-          <Drawer.Handle className="bottom-sheet-handle" />
-          <div className="bottom-sheet-body" style={{ maxHeight: bodyMaxHeight }}>
-            {children}
-          </div>
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
-  );
-}
+        {children}
+      </PureBottomSheet>
+    );
+  }
+);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { StopPopup } from './StopPopup';
@@ -44,6 +44,10 @@ const stopIcon = new L.DivIcon({
 // Center of the bus 80 route (roughly between Haarlem and Amsterdam)
 const DEFAULT_CENTER: [number, number] = [52.375, 4.7];
 const DEFAULT_ZOOM = 12;
+
+export interface BusMapHandle {
+  flyToStop: (stopName: string, direction: number) => void;
+}
 
 interface BusMapProps {
   data: VehiclesResponse | null;
@@ -194,19 +198,114 @@ function BusVehicleMarkers({ vehicles }: { vehicles: VehiclesResponse['vehicles'
   );
 }
 
-function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onRemoveStop }: BusMapProps) {
+/** Captures the Leaflet map instance into a ref so it can be used imperatively from outside. */
+function MapInstanceCapture({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null> }) {
+  const map = useMap();
+  mapRef.current = map;
+  return null;
+}
+
+/**
+ * Stop markers for one direction — memoized so they never re-render when
+ * only vehicle data changes. This prevents open popups from being closed
+ * by the 15-second vehicle poll cycle.
+ */
+const StopMarkerLayer = memo(function StopMarkerLayer({
+  stops,
+  direction,
+  savedTrips,
+  tpcMap,
+  onSaveStop,
+  onRemoveStop,
+  stopMarkerRefs,
+}: {
+  stops: StopInfo[];
+  direction: number;
+  savedTrips: SavedTrip[];
+  tpcMap: Record<string, string>;
+  onSaveStop: (stop: StopInfo, direction: number) => void;
+  onRemoveStop: (tpc: string, direction: number) => void;
+  stopMarkerRefs: React.MutableRefObject<Map<string, L.Marker>>;
+}) {
+  // Stable ref callbacks — created once per stop, reused across renders
+  const refCallbacks = useRef(new Map<string, (m: L.Marker | null) => void>());
+
+  function getRefCallback(key: string) {
+    let cb = refCallbacks.current.get(key);
+    if (!cb) {
+      cb = (m: L.Marker | null) => {
+        if (m) stopMarkerRefs.current.set(key, m);
+        else stopMarkerRefs.current.delete(key);
+      };
+      refCallbacks.current.set(key, cb);
+    }
+    return cb;
+  }
+
+  function getTpc(stop: StopInfo): string | null {
+    return tpcMap[`${direction}:${stop.name}`] || null;
+  }
+
+  return (
+    <>
+      {stops.map((stop) => (
+        <Marker
+          key={`d${direction}-${stop.stopId}`}
+          position={[stop.latitude, stop.longitude]}
+          icon={stopIcon}
+          ref={getRefCallback(`${direction}:${stop.stopId}`)}
+        >
+          <Popup>
+            <StopPopup
+              stopName={stop.name}
+              tpc={getTpc(stop)}
+              direction={direction}
+              savedTrips={savedTrips}
+              onSave={() => onSaveStop(stop, direction)}
+              onRemove={() => { const t = getTpc(stop); if (t) onRemoveStop(t, direction); }}
+            />
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  );
+});
+
+function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onRemoveStop, mapRef, stopMarkerRefs }: BusMapProps & {
+  mapRef: React.MutableRefObject<L.Map | null>;
+  stopMarkerRefs: React.MutableRefObject<Map<string, L.Marker>>;
+}) {
   const dir1Active = directionFilter === 'all' || directionFilter === 1;
   const dir2Active = directionFilter === 'all' || directionFilter === 2;
+
+  // Route data is static across polls — stabilise references so stop
+  // markers don't re-render when only vehicles change.
+  const dir1Stops = useMemo(
+    () => data?.route.direction1.stops ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.route.direction1.stops?.length],
+  );
+  const dir2Stops = useMemo(
+    () => data?.route.direction2.stops ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.route.direction2.stops?.length],
+  );
+  const dir1Shape = useMemo(
+    () => data?.route.direction1.shape ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.route.direction1.shape?.length],
+  );
+  const dir2Shape = useMemo(
+    () => data?.route.direction2.shape ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.route.direction2.shape?.length],
+  );
 
   const filteredVehicles = useMemo(() => {
     if (!data) return [];
     if (directionFilter === 'all') return data.vehicles;
     return data.vehicles.filter((v) => v.direction === directionFilter);
   }, [data, directionFilter]);
-
-  function getTpc(stop: StopInfo, direction: number): string | null {
-    return tpcMap[`${direction}:${stop.name}`] || null;
-  }
 
   return (
     <>
@@ -216,64 +315,39 @@ function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onR
       />
 
       <FitBounds data={data} />
+      <MapInstanceCapture mapRef={mapRef} />
 
       {/* Route polylines — hidden when direction inactive */}
-      {dir1Active && data?.route.direction1.shape && data.route.direction1.shape.length > 0 && (
-        <Polyline
-          positions={data.route.direction1.shape}
-          color="#006772"
-          weight={4}
-          opacity={0.7}
-        />
+      {dir1Active && dir1Shape.length > 0 && (
+        <Polyline positions={dir1Shape} color="#006772" weight={4} opacity={0.7} />
       )}
-      {dir2Active && data?.route.direction2.shape && data.route.direction2.shape.length > 0 && (
-        <Polyline
-          positions={data.route.direction2.shape}
-          color="#dc2626"
-          weight={4}
-          opacity={0.7}
-        />
+      {dir2Active && dir2Shape.length > 0 && (
+        <Polyline positions={dir2Shape} color="#dc2626" weight={4} opacity={0.7} />
       )}
 
-      {/* Stop markers - Direction 1 */}
-      {dir1Active && data?.route.direction1.stops.map((stop) => (
-        <Marker
-          key={`d1-${stop.stopId}`}
-          position={[stop.latitude, stop.longitude]}
-          icon={stopIcon}
-        >
-          <Popup>
-            <StopPopup
-              stopName={stop.name}
-              tpc={getTpc(stop, 1)}
-              direction={1}
-              savedTrips={savedTrips}
-              onSave={() => onSaveStop(stop, 1)}
-              onRemove={() => { const t = getTpc(stop, 1); if (t) onRemoveStop(t, 1); }}
-            />
-          </Popup>
-        </Marker>
-      ))}
-
-      {/* Stop markers - Direction 2 */}
-      {dir2Active && data?.route.direction2.stops.map((stop) => (
-        <Marker
-          key={`d2-${stop.stopId}`}
-          position={[stop.latitude, stop.longitude]}
-          icon={stopIcon}
-        >
-          <Popup>
-            <StopPopup
-              stopName={stop.name}
-              tpc={getTpc(stop, 2)}
-              direction={2}
-              savedTrips={savedTrips}
-              onSave={() => onSaveStop(stop, 2)}
-              onRemove={() => { const t = getTpc(stop, 2); if (t) onRemoveStop(t, 2); }}
-            />
-          </Popup>
-        </Marker>
-      ))}
+      {/* Stop markers — memoized per direction to survive vehicle polls */}
+      {dir1Active && (
+        <StopMarkerLayer
+          stops={dir1Stops}
+          direction={1}
+          savedTrips={savedTrips}
+          tpcMap={tpcMap}
+          onSaveStop={onSaveStop}
+          onRemoveStop={onRemoveStop}
+          stopMarkerRefs={stopMarkerRefs}
+        />
+      )}
+      {dir2Active && (
+        <StopMarkerLayer
+          stops={dir2Stops}
+          direction={2}
+          savedTrips={savedTrips}
+          tpcMap={tpcMap}
+          onSaveStop={onSaveStop}
+          onRemoveStop={onRemoveStop}
+          stopMarkerRefs={stopMarkerRefs}
+        />
+      )}
 
       {/* Bus vehicle markers — isolated to prevent zoom jitter */}
       <BusVehicleMarkers vehicles={filteredVehicles} />
@@ -281,15 +355,43 @@ function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onR
   );
 }
 
-export function BusMap(props: BusMapProps) {
-  return (
-    <MapContainer
-      center={DEFAULT_CENTER}
-      zoom={DEFAULT_ZOOM}
-      className="bus-map"
-      zoomControl={false}
-    >
-      <MapContent {...props} />
-    </MapContainer>
-  );
-}
+export const BusMap = forwardRef<BusMapHandle, BusMapProps>(
+  function BusMap(props, ref) {
+    const mapRef = useRef<L.Map | null>(null);
+    const stopMarkerRefs = useRef<Map<string, L.Marker>>(new Map());
+    const dataRef = useRef(props.data);
+    dataRef.current = props.data;
+
+    const flyToStop = useCallback((stopName: string, direction: number) => {
+      const map = mapRef.current;
+      const data = dataRef.current;
+      if (!map || !data) return;
+
+      const dirData = direction === 1 ? data.route.direction1 : data.route.direction2;
+      const stop = dirData.stops.find((s) => s.name === stopName);
+      if (!stop) return;
+
+      map.flyTo([stop.latitude, stop.longitude], 13.5, { duration: 0.8 });
+
+      // Open popup after fly animation completes
+      const key = `${direction}:${stop.stopId}`;
+      setTimeout(() => {
+        const marker = stopMarkerRefs.current.get(key);
+        if (marker) marker.openPopup();
+      }, 900);
+    }, []);
+
+    useImperativeHandle(ref, () => ({ flyToStop }), [flyToStop]);
+
+    return (
+      <MapContainer
+        center={DEFAULT_CENTER}
+        zoom={DEFAULT_ZOOM}
+        className="bus-map"
+        zoomControl={false}
+      >
+        <MapContent {...props} mapRef={mapRef} stopMarkerRefs={stopMarkerRefs} />
+      </MapContainer>
+    );
+  }
+);

@@ -1,15 +1,16 @@
-import { useCallback } from 'react';
-import { useState } from 'react';
-import { BusMap } from './components/BusMap';
+import { useCallback, useRef, useState } from 'react';
+import { BusMap, type BusMapHandle } from './components/BusMap';
 import { DirectionFilter, type DirectionFilterValue } from './components/DirectionFilter';
 import { SavedTrips } from './components/SavedTrips';
 // import { DelayLeaderboard } from './components/DelayLeaderboard';
 import { InstagramFeed } from './components/InstagramFeed';
 import { Accordion } from './components/Accordion';
-import { BottomSheet } from './components/BottomSheet';
+import { BottomSheet, type BottomSheetHandle } from './components/BottomSheet';
+import { CommunityOverlay } from './components/CommunityOverlay';
+import { UpdatePill } from './components/UpdatePill';
 import { useVehicles } from './hooks/useVehicles';
 import { useSavedTrips } from './hooks/useSavedTrips';
-import type { StopInfo } from './types';
+import type { SavedTrip, StopInfo } from './types';
 import './App.css';
 
 // TPC codes per direction (GTFS stop name → OVapi TimingPointCode).
@@ -87,9 +88,17 @@ const STOP_TPC_MAP: Record<string, string> = {
 };
 
 function App() {
-  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading } = useVehicles();
+  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastFetchTime, pollInterval } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
+  const [showCommunity, setShowCommunity] = useState(false);
+  const bottomSheetRef = useRef<BottomSheetHandle>(null);
+  const busMapRef = useRef<BusMapHandle>(null);
+
+  const handleSelectStop = useCallback((trip: SavedTrip) => {
+    busMapRef.current?.flyToStop(trip.stopName, trip.direction);
+    bottomSheetRef.current?.collapse();
+  }, []);
 
   const handleSaveStop = useCallback((stop: StopInfo, direction: number) => {
     const tpc = STOP_TPC_MAP[`${direction}:${stop.name}`];
@@ -106,7 +115,15 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <img src="/bus80-logo.png" alt="Bustie logo" className="app-logo" />
+        <img
+          src="/bus80-logo.png"
+          alt="Bustie logo"
+          className="app-logo"
+          onClick={() => setShowCommunity(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowCommunity(true); }}
+        />
         <h1>Hey, bustie!</h1>
         {vehiclesData && (() => {
           const count = directionFilter === 'all'
@@ -130,6 +147,7 @@ function App() {
             <div className="loading-overlay">Kaart laden...</div>
           )}
           <BusMap
+            ref={busMapRef}
             data={vehiclesData}
             directionFilter={directionFilter}
             savedTrips={savedTrips}
@@ -139,6 +157,9 @@ function App() {
           />
           {vehiclesData?.stale && (
             <div className="stale-banner">Data is mogelijk verouderd</div>
+          )}
+          {vehiclesData && (
+            <UpdatePill lastUpdate={lastFetchTime} intervalMs={pollInterval} />
           )}
           {vehiclesData && vehiclesData.vehicles.length === 0 && (
             <div className="no-service-overlay">
@@ -156,6 +177,7 @@ function App() {
             onRemove={removeTrip}
             onUpdateWalkTime={updateWalkTime}
             onReorder={reorderTrips}
+            onSelectStop={handleSelectStop}
           />
 
           {/* Hall of Shame — temporarily hidden
@@ -170,13 +192,14 @@ function App() {
         </div>
 
         {/* Mobile: bottom sheet */}
-        <BottomSheet>
+        <BottomSheet ref={bottomSheetRef}>
           <div className="side-content">
             <SavedTrips
               trips={savedTrips}
               onRemove={removeTrip}
               onUpdateWalkTime={updateWalkTime}
               onReorder={reorderTrips}
+              onSelectStop={handleSelectStop}
             />
 
             {/* Hall of Shame — temporarily hidden
@@ -184,13 +207,13 @@ function App() {
               <DelayLeaderboard />
             </Accordion>
             */}
-
-            <Accordion title="Bus80 spotter">
-              <InstagramFeed />
-            </Accordion>
           </div>
         </BottomSheet>
       </main>
+
+      {showCommunity && (
+        <CommunityOverlay onClose={() => setShowCommunity(false)} />
+      )}
     </div>
   );
 }
