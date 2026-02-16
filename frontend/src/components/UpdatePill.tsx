@@ -6,15 +6,24 @@ interface UpdatePillProps {
 }
 
 export function UpdatePill({ lastUpdate, intervalMs }: UpdatePillProps) {
-  const [now, setNow] = useState(Date.now());
+  const intervalSecs = Math.ceil(intervalMs / 1000);
+  const [tick, setTick] = useState(0);
+  const [prevLastUpdate, setPrevLastUpdate] = useState(lastUpdate);
+
+  // React 19 pattern: adjust state during render when props change
+  if (lastUpdate !== prevLastUpdate) {
+    setPrevLastUpdate(lastUpdate);
+    setTick(0);
+  }
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
     return () => clearInterval(id);
   }, []);
 
-  const elapsed = now - lastUpdate;
-  const remaining = Math.max(0, Math.ceil((intervalMs - elapsed) / 1000));
+  const remaining = Math.max(0, intervalSecs - tick);
 
   return (
     <div className="update-pill">

@@ -201,7 +201,7 @@ function BusVehicleMarkers({ vehicles }: { vehicles: VehiclesResponse['vehicles'
 /** Captures the Leaflet map instance into a ref so it can be used imperatively from outside. */
 function MapInstanceCapture({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null> }) {
   const map = useMap();
-  mapRef.current = map;
+  useEffect(() => { mapRef.current = map; }, [map, mapRef]);
   return null;
 }
 
@@ -227,21 +227,6 @@ const StopMarkerLayer = memo(function StopMarkerLayer({
   onRemoveStop: (tpc: string, direction: number) => void;
   stopMarkerRefs: React.MutableRefObject<Map<string, L.Marker>>;
 }) {
-  // Stable ref callbacks — created once per stop, reused across renders
-  const refCallbacks = useRef(new Map<string, (m: L.Marker | null) => void>());
-
-  function getRefCallback(key: string) {
-    let cb = refCallbacks.current.get(key);
-    if (!cb) {
-      cb = (m: L.Marker | null) => {
-        if (m) stopMarkerRefs.current.set(key, m);
-        else stopMarkerRefs.current.delete(key);
-      };
-      refCallbacks.current.set(key, cb);
-    }
-    return cb;
-  }
-
   function getTpc(stop: StopInfo): string | null {
     return tpcMap[`${direction}:${stop.name}`] || null;
   }
@@ -253,7 +238,11 @@ const StopMarkerLayer = memo(function StopMarkerLayer({
           key={`d${direction}-${stop.stopId}`}
           position={[stop.latitude, stop.longitude]}
           icon={stopIcon}
-          ref={getRefCallback(`${direction}:${stop.stopId}`)}
+          ref={(m: L.Marker | null) => {
+            const key = `${direction}:${stop.stopId}`;
+            if (m) stopMarkerRefs.current.set(key, m);
+            else stopMarkerRefs.current.delete(key);
+          }}
         >
           <Popup>
             <StopPopup
@@ -360,7 +349,7 @@ export const BusMap = forwardRef<BusMapHandle, BusMapProps>(
     const mapRef = useRef<L.Map | null>(null);
     const stopMarkerRefs = useRef<Map<string, L.Marker>>(new Map());
     const dataRef = useRef(props.data);
-    dataRef.current = props.data;
+    useEffect(() => { dataRef.current = props.data; }, [props.data]);
 
     const flyToStop = useCallback((stopName: string, direction: number) => {
       const map = mapRef.current;
