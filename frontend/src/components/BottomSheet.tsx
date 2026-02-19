@@ -1,5 +1,5 @@
-import { type ReactNode, forwardRef, useImperativeHandle, useRef } from 'react';
-import { BottomSheet as PureBottomSheet } from 'pure-web-bottom-sheet/react';
+import { type ReactNode, forwardRef, useImperativeHandle, useState } from 'react';
+import { Drawer } from 'vaul';
 
 export interface BottomSheetHandle {
   collapse: () => void;
@@ -9,38 +9,50 @@ interface BottomSheetProps {
   children: ReactNode;
 }
 
+const SNAP_POINTS = [0.14, 0.52, 0.80] as const;
+const DEFAULT_SNAP = SNAP_POINTS[0];
+
 /**
- * Mobile bottom sheet using pure-web-bottom-sheet.
- * Three fixed snap points: peek (12dvh), mid (45dvh), full (85dvh).
+ * Mobile bottom sheet using vaul (CSS transform-based).
+ * Three snap points: peek (14%), mid (52%), full (80%).
+ * Opens at peek. Always open, non-dismissible, non-modal so the map stays interactive.
  */
 export const BottomSheet = forwardRef<BottomSheetHandle, BottomSheetProps>(
   function BottomSheet({ children }, ref) {
-    const sheetRef = useRef<HTMLElement>(null);
+    const [snap, setSnap] = useState<number | string | null>(DEFAULT_SNAP);
 
     useImperativeHandle(ref, () => ({
       collapse() {
-        // Snap to peek by scrolling the sheet to top
-        const el = sheetRef.current;
-        if (el) {
-          el.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        setSnap(SNAP_POINTS[0]);
       },
     }));
 
-    return (
-      <PureBottomSheet
-        ref={sheetRef as React.RefObject<never>}
-        tabIndex={0}
-        nested-scroll
-        expand-to-scroll
-        className="bottom-sheet"
-      >
-        <div slot="snap" style={{ '--snap': '12dvh' } as React.CSSProperties} />
-        <div slot="snap" style={{ '--snap': '45dvh' } as React.CSSProperties} className="initial" />
-        <div slot="snap" style={{ '--snap': '85dvh' } as React.CSSProperties} />
+    // Only allow scrolling when fully expanded
+    const isFullyOpen = snap === SNAP_POINTS[2];
 
-        {children}
-      </PureBottomSheet>
+    return (
+      <Drawer.Root
+        open
+        modal={false}
+        snapPoints={SNAP_POINTS as unknown as number[]}
+        activeSnapPoint={snap}
+        setActiveSnapPoint={setSnap}
+        dismissible={false}
+      >
+        <Drawer.Portal>
+          <Drawer.Content className="bottom-sheet">
+            <div className="bottom-sheet-handle-area">
+              <div className="bottom-sheet-handle" />
+            </div>
+            <div
+              className="bottom-sheet-body"
+              style={{ overflowY: isFullyOpen ? 'auto' : 'hidden' }}
+            >
+              {children}
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     );
   }
 );

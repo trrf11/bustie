@@ -155,9 +155,6 @@ function App() {
             onSaveStop={handleSaveStop}
             onRemoveStop={removeTripByStop}
           />
-          {vehiclesData?.stale && (
-            <div className="stale-banner">Data is mogelijk verouderd</div>
-          )}
           {vehiclesData && (
             <UpdatePill lastUpdate={lastFetchTime} intervalMs={pollInterval} />
           )}

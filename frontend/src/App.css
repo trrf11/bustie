@@ -220,8 +220,7 @@ body {
 /* Map overlays */
 .error-overlay,
 .loading-overlay,
-.no-service-overlay,
-.stale-banner {
+.no-service-overlay {
   position: absolute;
   z-index: 1000;
   pointer-events: none;
@@ -251,23 +250,10 @@ body {
   color: var(--color-text-muted);
 }
 
-.stale-banner {
-  bottom: 12px;
-  left: 12px;
-  background: rgba(18, 42, 45, 0.85);
-  color: var(--color-text-muted);
-  font-size: 0.7rem;
-  font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 100px;
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-}
 
 .update-pill {
   position: absolute;
-  bottom: 14dvh;
+  bottom: calc(14dvh + 8px);
   right: 12px;
   z-index: 1000;
   background: rgba(18, 42, 45, 0.85);
@@ -298,50 +284,59 @@ body {
   display: none;
 }
 
-/* === Bottom Sheet (mobile only) === */
+/* === Bottom Sheet (mobile only, vaul) === */
+
+/* vaul renders [vaul-drawer] as the content wrapper.
+   height: 100dvh is REQUIRED for vaul's snap-point transforms to calculate correctly. */
 .bottom-sheet {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
+  height: 100vh;
+  height: 100dvh;
   z-index: 1001;
-  --sheet-max-height: 85dvh;
-  --sheet-background: var(--color-surface);
-  --sheet-border-radius: var(--radius-lg);
-  /* Safe area padding for phones with home indicator */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  /* Allow clicks to pass through to the map */
-  pointer-events: none;
-}
-
-/* Make the sheet surface itself interactive */
-.bottom-sheet::part(sheet) {
-  pointer-events: all;
   background: var(--color-surface);
   border-top-left-radius: var(--radius-lg);
   border-top-right-radius: var(--radius-lg);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  outline: none;
 }
 
-/* Style the drag handle area */
-.bottom-sheet::part(header) {
+/* Drag handle area */
+.bottom-sheet-handle-area {
   display: flex;
   justify-content: center;
   padding: 10px 0 6px;
   cursor: grab;
 }
 
-.bottom-sheet::part(header):active {
+.bottom-sheet-handle-area:active {
   cursor: grabbing;
 }
 
-/* Inner content: hide scrollbar but keep scrolling */
-.bottom-sheet::part(content) {
+.bottom-sheet-handle {
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-text-muted);
+  opacity: 0.4;
+}
+
+/* Scrollable content area — overflow is set inline (auto when fully open, hidden otherwise) */
+.bottom-sheet-body {
+  flex: 1;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
 
-.bottom-sheet::part(content)::-webkit-scrollbar {
+.bottom-sheet-body::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
+}
+
+/* vaul overlay — hide it since we're non-modal */
+[vaul-overlay] {
+  display: none !important;
 }
 
 /* Inside the bottom sheet, side-content is a static container */
@@ -918,7 +913,8 @@ body {
     border-left: 1px solid var(--color-border);
   }
 
-  .bottom-sheet {
+  /* Hide vaul drawer portal on desktop */
+  [vaul-drawer] {
     display: none !important;
   }
 
