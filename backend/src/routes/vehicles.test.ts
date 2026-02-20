@@ -3,31 +3,27 @@ import request from 'supertest';
 import { createApp } from '../app';
 
 // Mock dependencies
-vi.mock('../services/polling', () => ({
-  getCachedVehicles: vi.fn(),
+vi.mock('../db', () => ({
+  getVehiclesFromDb: vi.fn(),
 }));
 vi.mock('../services/gtfs-static', () => ({
   getRouteData: vi.fn(),
-  getDirectionForTrip: vi.fn(),
   getPrimaryShapes: vi.fn(),
 }));
 
-import { getCachedVehicles } from '../services/polling';
-import { getRouteData, getDirectionForTrip, getPrimaryShapes } from '../services/gtfs-static';
+import { getVehiclesFromDb } from '../db';
+import { getRouteData, getPrimaryShapes } from '../services/gtfs-static';
 
 const app = createApp();
 
-const mockVehicle = {
-  vehicleId: 'CXX-4001',
-  tripId: 'trip-123',
-  routeId: 'route-80',
-  directionId: 0,
+const mockDbVehicle = {
+  vehicle_id: 'CXX-4001',
+  trip_id: 'trip-123',
+  direction: 1,
   latitude: 52.38,
   longitude: 4.65,
-  delaySeconds: 120,
-  currentStatus: 'IN_TRANSIT_TO',
-  stopId: 'stop-1',
-  timestamp: '2026-02-10T14:00:00.000Z',
+  delay_seconds: 120,
+  updated_at: '2026-02-10T14:00:00.000Z',
 };
 
 const mockShapes = {
@@ -45,65 +41,36 @@ const mockRouteData = {
 };
 
 beforeEach(() => {
-  vi.mocked(getCachedVehicles).mockReset();
+  vi.mocked(getVehiclesFromDb).mockReset();
   vi.mocked(getRouteData).mockReset();
-  vi.mocked(getDirectionForTrip).mockReset();
   vi.mocked(getPrimaryShapes).mockReset();
 
-  vi.mocked(getCachedVehicles).mockReturnValue({
-    data: [mockVehicle],
-    timestamp: '2026-02-10T14:00:00.000Z',
-    stale: false,
-  });
+  vi.mocked(getVehiclesFromDb).mockReturnValue([mockDbVehicle]);
   vi.mocked(getRouteData).mockReturnValue(mockRouteData as any);
-  vi.mocked(getDirectionForTrip).mockReturnValue(0);
   vi.mocked(getPrimaryShapes).mockReturnValue(mockShapes);
 });
 
 describe('GET /api/vehicles', () => {
-  it('returns vehicles with direction mapped from GTFS 0/1 to display 1/2', async () => {
+  it('returns vehicles from DB with correct field mapping', async () => {
     const res = await request(app).get('/api/vehicles');
 
     expect(res.status).toBe(200);
     expect(res.body.vehicles).toHaveLength(1);
-    // GTFS direction 0 → display direction 1
     expect(res.body.vehicles[0].direction).toBe(1);
     expect(res.body.vehicles[0].vehicleId).toBe('CXX-4001');
+    expect(res.body.vehicles[0].delaySeconds).toBe(120);
   });
 
-  it('maps GTFS direction 1 to display direction 2', async () => {
-    vi.mocked(getCachedVehicles).mockReturnValue({
-      data: [{ ...mockVehicle, directionId: 1 }],
-      timestamp: '2026-02-10T14:00:00.000Z',
-      stale: false,
-    });
+  it('returns direction 2 when stored as 2', async () => {
+    vi.mocked(getVehiclesFromDb).mockReturnValue([{ ...mockDbVehicle, direction: 2 }]);
 
     const res = await request(app).get('/api/vehicles');
 
     expect(res.body.vehicles[0].direction).toBe(2);
   });
 
-  it('falls back to static direction when RT direction is null', async () => {
-    vi.mocked(getCachedVehicles).mockReturnValue({
-      data: [{ ...mockVehicle, directionId: null }],
-      timestamp: '2026-02-10T14:00:00.000Z',
-      stale: false,
-    });
-    vi.mocked(getDirectionForTrip).mockReturnValue(1);
-
-    const res = await request(app).get('/api/vehicles');
-
-    expect(res.body.vehicles[0].direction).toBe(2); // static dir 1 → display 2
-    expect(getDirectionForTrip).toHaveBeenCalledWith('trip-123');
-  });
-
-  it('sets direction to null when neither RT nor static available', async () => {
-    vi.mocked(getCachedVehicles).mockReturnValue({
-      data: [{ ...mockVehicle, directionId: null }],
-      timestamp: '2026-02-10T14:00:00.000Z',
-      stale: false,
-    });
-    vi.mocked(getDirectionForTrip).mockReturnValue(null);
+  it('returns null direction when stored as null', async () => {
+    vi.mocked(getVehiclesFromDb).mockReturnValue([{ ...mockDbVehicle, direction: null }]);
 
     const res = await request(app).get('/api/vehicles');
 
@@ -119,24 +86,8 @@ describe('GET /api/vehicles', () => {
     expect(res.body.route.direction2.stops).toHaveLength(1);
   });
 
-  it('includes stale flag', async () => {
-    vi.mocked(getCachedVehicles).mockReturnValue({
-      data: [mockVehicle],
-      timestamp: '2026-02-10T14:00:00.000Z',
-      stale: true,
-    });
-
-    const res = await request(app).get('/api/vehicles');
-
-    expect(res.body.stale).toBe(true);
-  });
-
   it('returns empty vehicles list when no buses active', async () => {
-    vi.mocked(getCachedVehicles).mockReturnValue({
-      data: [],
-      timestamp: '2026-02-10T14:00:00.000Z',
-      stale: false,
-    });
+    vi.mocked(getVehiclesFromDb).mockReturnValue([]);
 
     const res = await request(app).get('/api/vehicles');
 

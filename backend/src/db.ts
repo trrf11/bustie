@@ -48,8 +48,150 @@ export function initDb(customPath?: string): void {
     WHERE recorded_at < datetime('now', '-30 days')
   `);
 
+  // Create vehicles table (latest snapshot — one row per active bus)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS vehicles (
+      vehicle_id TEXT PRIMARY KEY,
+      trip_id TEXT NOT NULL,
+      direction INTEGER,
+      latitude REAL NOT NULL,
+      longitude REAL NOT NULL,
+      delay_seconds INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  // Create stop_times table (latest trip update snapshot)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stop_times (
+      trip_id TEXT NOT NULL,
+      stop_id TEXT NOT NULL,
+      stop_sequence INTEGER NOT NULL,
+      direction INTEGER,
+      arrival_time INTEGER,
+      arrival_delay INTEGER NOT NULL DEFAULT 0,
+      departure_time INTEGER,
+      departure_delay INTEGER NOT NULL DEFAULT 0,
+      departed INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (trip_id, stop_id)
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_stop_times_stop_id
+    ON stop_times(stop_id)
+  `);
+
+  // Create poll_log table (for debugging)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS poll_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      poll_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      vehicle_count INTEGER,
+      error_message TEXT,
+      polled_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Purge old poll_log entries (older than 7 days)
+  db.exec(`
+    DELETE FROM poll_log
+    WHERE polled_at < datetime('now', '-7 days')
+  `);
+
   console.log(`SQLite database initialized at ${dbPath} (WAL mode)`);
 }
+
+// --- Vehicles table ---
+
+export interface DbVehicle {
+  vehicle_id: string;
+  trip_id: string;
+  direction: number | null;
+  latitude: number;
+  longitude: number;
+  delay_seconds: number;
+  updated_at: string;
+}
+
+export function replaceVehicles(vehicles: DbVehicle[]): void {
+  const transaction = db.transaction(() => {
+    db.exec('DELETE FROM vehicles');
+    const stmt = db.prepare(`
+      INSERT INTO vehicles (vehicle_id, trip_id, direction, latitude, longitude, delay_seconds, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const v of vehicles) {
+      stmt.run(v.vehicle_id, v.trip_id, v.direction, v.latitude, v.longitude, v.delay_seconds, v.updated_at);
+    }
+  });
+  transaction();
+}
+
+export function getVehiclesFromDb(): DbVehicle[] {
+  return db.prepare('SELECT * FROM vehicles').all() as DbVehicle[];
+}
+
+// --- Stop times table ---
+
+export interface DbStopTime {
+  trip_id: string;
+  stop_id: string;
+  stop_sequence: number;
+  direction: number | null;
+  arrival_time: number | null;
+  arrival_delay: number;
+  departure_time: number | null;
+  departure_delay: number;
+  departed: number; // 0 or 1
+}
+
+export function replaceStopTimes(stopTimes: DbStopTime[]): void {
+  const transaction = db.transaction(() => {
+    db.exec('DELETE FROM stop_times');
+    const stmt = db.prepare(`
+      INSERT INTO stop_times (trip_id, stop_id, stop_sequence, direction, arrival_time, arrival_delay, departure_time, departure_delay, departed)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const st of stopTimes) {
+      stmt.run(st.trip_id, st.stop_id, st.stop_sequence, st.direction, st.arrival_time, st.arrival_delay, st.departure_time, st.departure_delay, st.departed);
+    }
+  });
+  transaction();
+}
+
+export interface DbArrival {
+  tripId: string;
+  arrivalTime: number;
+  delay: number;
+  departed: boolean;
+}
+
+export function getArrivalsForStopFromDb(stopId: string): DbArrival[] {
+  const rows = db.prepare(
+    'SELECT trip_id, arrival_time, arrival_delay, departed FROM stop_times WHERE stop_id = ? AND departed = 0 ORDER BY arrival_time'
+  ).all(stopId) as Array<{ trip_id: string; arrival_time: number | null; arrival_delay: number; departed: number }>;
+
+  return rows
+    .filter((r) => r.arrival_time !== null)
+    .map((r) => ({
+      tripId: r.trip_id,
+      arrivalTime: r.arrival_time!,
+      delay: r.arrival_delay,
+      departed: r.departed === 1,
+    }));
+}
+
+// --- Poll log ---
+
+export function logPoll(pollType: string, status: string, vehicleCount?: number, errorMessage?: string): void {
+  db.prepare(
+    'INSERT INTO poll_log (poll_type, status, vehicle_count, error_message) VALUES (?, ?, ?, ?)'
+  ).run(pollType, status, vehicleCount ?? null, errorMessage ?? null);
+}
+
+// --- Delay recording (existing) ---
 
 export function recordDelay(
   journeyNumber: number,

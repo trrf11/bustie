@@ -1,32 +1,22 @@
 import { Router, Request, Response } from 'express';
-import { getCachedVehicles } from '../services/polling';
-import { getRouteData, getDirectionForTrip, getPrimaryShapes } from '../services/gtfs-static';
+import { getVehiclesFromDb } from '../db';
+import { getRouteData, getPrimaryShapes } from '../services/gtfs-static';
 
 export const vehiclesRouter = Router();
 
 vehiclesRouter.get('/', (_req: Request, res: Response) => {
-  const cached = getCachedVehicles();
+  const dbVehicles = getVehiclesFromDb();
   const routeData = getRouteData();
 
-  // Enrich vehicles with direction info
-  const vehicles = cached.data.map((v) => {
-    // Use direction from GTFS-RT feed directly, fallback to static lookup
-    const rtDirection = v.directionId;
-    const staticDirection = getDirectionForTrip(v.tripId);
-    const rawDirection = rtDirection !== null ? rtDirection : staticDirection;
-
-    return {
-      vehicleId: v.vehicleId,
-      tripId: v.tripId,
-      latitude: v.latitude,
-      longitude: v.longitude,
-      direction: rawDirection !== null ? (rawDirection === 0 ? 1 : 2) : null, // Map GTFS 0/1 to display 1/2
-      delaySeconds: v.delaySeconds,
-      currentStatus: v.currentStatus,
-      stopId: v.stopId,
-      timestamp: v.timestamp,
-    };
-  });
+  const vehicles = dbVehicles.map((v) => ({
+    vehicleId: v.vehicle_id,
+    tripId: v.trip_id,
+    latitude: v.latitude,
+    longitude: v.longitude,
+    direction: v.direction,
+    delaySeconds: v.delay_seconds,
+    timestamp: v.updated_at,
+  }));
 
   // Get route shapes and stops
   const shapes = getPrimaryShapes();
@@ -46,7 +36,7 @@ vehiclesRouter.get('/', (_req: Request, res: Response) => {
         shape: shapes.direction2,
       },
     },
-    stale: cached.stale,
-    timestamp: cached.timestamp,
+    stale: false,
+    timestamp: new Date().toISOString(),
   });
 });

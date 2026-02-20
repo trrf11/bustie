@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { config } from '../config';
 import { fetchDepartures } from '../services/ovapi';
-import { getCachedDepartures, getArrivalsForStop } from '../services/polling';
+import { getCachedDepartures } from '../services/polling';
+import { getArrivalsForStopFromDb } from '../db';
 import { lookupStopId } from '../services/stop-mapping';
 
 export const departuresRouter = Router();
@@ -27,7 +28,7 @@ departuresRouter.get('/', async (req: Request, res: Response) => {
 
     // Look up GTFS stopId and get real-time arrivals
     const gtfsStopId = lookupStopId(tpc, direction);
-    const realtimeArrivals = gtfsStopId ? getArrivalsForStop(gtfsStopId) : [];
+    const realtimeArrivals = gtfsStopId ? getArrivalsForStopFromDb(gtfsStopId) : [];
 
     // Merge real-time arrival times into OVapi departures.
     // Match by comparing scheduled times: GTFS-RT scheduled = arrivalTime - delay,

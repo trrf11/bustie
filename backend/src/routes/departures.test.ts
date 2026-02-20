@@ -9,6 +9,12 @@ vi.mock('../services/polling', () => ({
 vi.mock('../services/ovapi', () => ({
   fetchDepartures: vi.fn(),
 }));
+vi.mock('../db', () => ({
+  getArrivalsForStopFromDb: vi.fn().mockReturnValue([]),
+}));
+vi.mock('../services/stop-mapping', () => ({
+  lookupStopId: vi.fn().mockReturnValue(null),
+}));
 
 import { getCachedDepartures } from '../services/polling';
 import { fetchDepartures } from '../services/ovapi';
