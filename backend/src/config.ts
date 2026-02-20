@@ -22,6 +22,7 @@ export const config = {
   vehiclePollInterval: 30_000,
   departurePollInterval: 30_000,
   gtfsUpdateCheckInterval: 24 * 60 * 60 * 1000, // 24 hours
+  stalenessThreshold: 5, // consecutive zero-vehicle polls before triggering GTFS refresh
 
   // Data paths
   routeDataPath: './data/route.json',
