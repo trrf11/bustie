@@ -2,6 +2,7 @@ import { config } from '../config';
 
 interface OvApiPass {
   DataOwnerCode: string;
+  OperatorCode: string;
   LinePublicNumber: string;
   LinePlanningNumber: string;
   LineDirection: number;
@@ -76,10 +77,10 @@ export async function fetchDepartures(tpc: string): Promise<DepartureResult> {
   const passes: Record<string, OvApiPass> = tpcData.Passes || tpcData;
 
   for (const [_passId, pass] of Object.entries(passes)) {
-    if (!pass || typeof pass !== 'object' || !pass.DataOwnerCode) continue;
+    if (!pass || typeof pass !== 'object' || !pass.OperatorCode) continue;
 
     // Filter: only CXX bus 80, not night bus
-    if (pass.DataOwnerCode !== config.dataOwnerCode) continue;
+    if (pass.OperatorCode !== config.operatorCode) continue;
     if (pass.LinePublicNumber !== config.linePublicNumber) continue;
     if (pass.LinePlanningNumber === 'N286') continue; // night bus N80
     if (pass.TransportType !== 'BUS') continue;

@@ -6,7 +6,8 @@ const ovApiFixture = {
   '55230110': {
     Passes: {
       'pass-1': {
-        DataOwnerCode: 'CXX',
+        DataOwnerCode: 'NL',
+        OperatorCode: 'CXX',
         LinePublicNumber: '80',
         LinePlanningNumber: 'N080',
         LineDirection: 1,
@@ -25,7 +26,8 @@ const ovApiFixture = {
         LastUpdateTimeStamp: '2026-02-10T14:10:00',
       },
       'pass-2': {
-        DataOwnerCode: 'CXX',
+        DataOwnerCode: 'NL',
+        OperatorCode: 'CXX',
         LinePublicNumber: '80',
         LinePlanningNumber: 'N080',
         LineDirection: 2,
@@ -45,7 +47,8 @@ const ovApiFixture = {
       },
       // Should be filtered out: different operator
       'pass-3': {
-        DataOwnerCode: 'GVB',
+        DataOwnerCode: 'NL',
+        OperatorCode: 'GVB',
         LinePublicNumber: '22',
         LinePlanningNumber: 'G022',
         LineDirection: 1,
@@ -63,7 +66,8 @@ const ovApiFixture = {
       },
       // Should be filtered out: night bus N80
       'pass-4': {
-        DataOwnerCode: 'CXX',
+        DataOwnerCode: 'NL',
+        OperatorCode: 'CXX',
         LinePublicNumber: '80',
         LinePlanningNumber: 'N286',
         LineDirection: 1,
@@ -108,7 +112,7 @@ describe('fetchDepartures', () => {
     expect(result.departures).toHaveLength(2); // Only CXX bus 80, not GVB or N80
   });
 
-  it('filters out non-CXX operators', async () => {
+  it('filters out non-CXX operator codes', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
       json: async () => ovApiFixture,
@@ -195,7 +199,8 @@ describe('fetchDepartures', () => {
     const directFixture = {
       '55230110': {
         'pass-1': {
-          DataOwnerCode: 'CXX',
+          DataOwnerCode: 'NL',
+          OperatorCode: 'CXX',
           LinePublicNumber: '80',
           LinePlanningNumber: 'N080',
           LineDirection: 1,

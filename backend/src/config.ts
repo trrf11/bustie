@@ -10,7 +10,7 @@ export const config = {
   gtfsStaticUrl: 'http://gtfs.ovapi.nl/nl/gtfs-nl.zip',
 
   // Bus 80 identifiers (used for OVapi REST filtering)
-  dataOwnerCode: 'CXX',
+  operatorCode: 'CXX',
   linePublicNumber: '80',
   linePlanningNumber: 'N080',
 
