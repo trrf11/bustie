@@ -1,6 +1,6 @@
 # Bus 80 Tracker
 
-Real-time tracker for bus line 80 in The Hague, Netherlands. Shows live bus positions on an interactive map with estimated arrival times.
+Real-time tracker for bus line 80 in Amsterdam, Netherlands. Shows live bus positions on an interactive map with estimated arrival times.
 
 ## How It Works
 
