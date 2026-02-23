@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { VehiclesResponse } from '../types';
 
-const POLL_INTERVAL = 30_000;
+const POLL_INTERVAL = 60_000;
 
 export function useVehicles() {
   const [data, setData] = useState<VehiclesResponse | null>(null);

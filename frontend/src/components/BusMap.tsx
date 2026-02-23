@@ -99,18 +99,22 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
  * transitions on the marker wrapper (which break during zoom because
  * Leaflet uses the same CSS transform for repositioning).
  */
-const EASE_DURATION = 25_000; // ms
+const EASE_DURATION = 15_000; // ms
 
 function AnimatedBusMarker({ vehicle, icon }: { vehicle: VehiclesResponse['vehicles'][0]; icon: L.DivIcon }) {
   const markerRef = useRef<L.Marker | null>(null);
   const animRef = useRef<number | null>(null);
+  // Track interpolated position in a ref — react-leaflet snaps the marker
+  // to the new position before our effect runs, so marker.getLatLng() would
+  // already return the target. This ref preserves the actual displayed position.
+  const posRef = useRef({ lat: vehicle.latitude, lng: vehicle.longitude });
 
   useEffect(() => {
     const marker = markerRef.current;
     if (!marker) return;
 
     const target = L.latLng(vehicle.latitude, vehicle.longitude);
-    const start = marker.getLatLng();
+    const start = L.latLng(posRef.current.lat, posRef.current.lng);
 
     // Skip animation if marker hasn't moved (or first render)
     if (start.lat === target.lat && start.lng === target.lng) return;
@@ -118,18 +122,19 @@ function AnimatedBusMarker({ vehicle, icon }: { vehicle: VehiclesResponse['vehic
     // Cancel any running animation
     if (animRef.current) cancelAnimationFrame(animRef.current);
 
-    // Capture non-null reference for the animation closure
     const m = marker;
     const startTime = performance.now();
+
+    // Snap back to where we visually were (undo react-leaflet's jump)
+    m.setLatLng(start);
 
     function animate(now: number) {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / EASE_DURATION, 1);
-      // Linear easing — steady movement over 25s looks more natural than cubic
-      const ease = t;
 
-      const lat = start.lat + (target.lat - start.lat) * ease;
-      const lng = start.lng + (target.lng - start.lng) * ease;
+      const lat = start.lat + (target.lat - start.lat) * t;
+      const lng = start.lng + (target.lng - start.lng) * t;
+      posRef.current = { lat, lng };
       m.setLatLng([lat, lng]);
 
       if (t < 1) {
