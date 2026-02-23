@@ -99,7 +99,7 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
  * transitions on the marker wrapper (which break during zoom because
  * Leaflet uses the same CSS transform for repositioning).
  */
-const EASE_DURATION = 1000; // ms
+const EASE_DURATION = 25_000; // ms
 
 function AnimatedBusMarker({ vehicle, icon }: { vehicle: VehiclesResponse['vehicles'][0]; icon: L.DivIcon }) {
   const markerRef = useRef<L.Marker | null>(null);
@@ -125,8 +125,8 @@ function AnimatedBusMarker({ vehicle, icon }: { vehicle: VehiclesResponse['vehic
     function animate(now: number) {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / EASE_DURATION, 1);
-      // Ease-in-out cubic
-      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      // Linear easing — steady movement over 25s looks more natural than cubic
+      const ease = t;
 
       const lat = start.lat + (target.lat - start.lat) * ease;
       const lng = start.lng + (target.lng - start.lng) * ease;
@@ -208,7 +208,7 @@ function MapInstanceCapture({ mapRef }: { mapRef: React.MutableRefObject<L.Map |
 /**
  * Stop markers for one direction — memoized so they never re-render when
  * only vehicle data changes. This prevents open popups from being closed
- * by the 15-second vehicle poll cycle.
+ * by the 30-second vehicle poll cycle.
  */
 const StopMarkerLayer = memo(function StopMarkerLayer({
   stops,
