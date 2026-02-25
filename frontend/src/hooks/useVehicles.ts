@@ -117,6 +117,11 @@ export function useVehicles() {
   }, [startPolling]);
 
   useEffect(() => {
+    // Fetch initial data immediately via REST — SSE init can be delayed by
+    // proxy buffering (Cloudflare, Nginx). This ensures the map renders
+    // right away while the SSE connection is being established.
+    fetchVehicles();
+
     connectSSE();
 
     // Mobile recovery: reopen SSE when page becomes visible after sleeping
