@@ -80,7 +80,17 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave, onRemo
 
     fetchNext();
     const interval = setInterval(fetchNext, 30_000);
-    return () => { cancelled = true; clearInterval(interval); };
+
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') fetchNext();
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [tpc, direction, walkTime]);
 
   // Re-render countdown every 15s

@@ -1,33 +1,42 @@
 import { useState, useEffect } from 'react';
+import type { ConnectionStatus } from '../hooks/useVehicles';
 
 interface UpdatePillProps {
   lastUpdate: number;
-  intervalMs: number;
+  connectionStatus: ConnectionStatus;
 }
 
-export function UpdatePill({ lastUpdate, intervalMs }: UpdatePillProps) {
-  const intervalSecs = Math.ceil(intervalMs / 1000);
-  const [tick, setTick] = useState(0);
-  const [prevLastUpdate, setPrevLastUpdate] = useState(lastUpdate);
-
-  // React 19 pattern: adjust state during render when props change
-  if (lastUpdate !== prevLastUpdate) {
-    setPrevLastUpdate(lastUpdate);
-    setTick(0);
-  }
+export function UpdatePill({ lastUpdate, connectionStatus }: UpdatePillProps) {
+  const [, setTick] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 1000);
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const remaining = Math.max(0, intervalSecs - tick);
+  if (connectionStatus === 'connecting') {
+    return <div className="update-pill update-pill--warn">Verbinden...</div>;
+  }
 
-  return (
-    <div className="update-pill">
-      {remaining > 0 ? `Update in ${remaining}s` : 'Updating...'}
-    </div>
-  );
+  if (connectionStatus === 'reconnecting') {
+    return <div className="update-pill update-pill--warn">Opnieuw verbinden...</div>;
+  }
+
+  const elapsed = lastUpdate > 0 ? Math.floor((Date.now() - lastUpdate) / 1000) : 0;
+  const isPolling = connectionStatus === 'polling';
+
+  let label: string;
+  if (elapsed < 5) {
+    label = 'Zojuist bijgewerkt';
+  } else if (elapsed < 60) {
+    label = `${elapsed}s geleden`;
+  } else {
+    label = `${Math.floor(elapsed / 60)}m geleden`;
+  }
+
+  if (isPolling) {
+    label += ' (polling)';
+  }
+
+  return <div className="update-pill">{label}</div>;
 }

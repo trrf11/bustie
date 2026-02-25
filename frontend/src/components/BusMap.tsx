@@ -365,14 +365,14 @@ export const BusMap = forwardRef<BusMapHandle, BusMapProps>(
       const stop = dirData.stops.find((s) => s.name === stopName);
       if (!stop) return;
 
-      map.flyTo([stop.latitude, stop.longitude], 13.5, { duration: 0.8 });
+      map.flyTo([stop.latitude, stop.longitude], 13.5, { duration: 0.4 });
 
       // Open popup after fly animation completes
       const key = `${direction}:${stop.stopId}`;
       setTimeout(() => {
         const marker = stopMarkerRefs.current.get(key);
         if (marker) marker.openPopup();
-      }, 900);
+      }, 500);
     }, []);
 
     useImperativeHandle(ref, () => ({ flyToStop }), [flyToStop]);

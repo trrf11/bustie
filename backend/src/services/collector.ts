@@ -4,6 +4,7 @@ import { fetchTripUpdates } from './gtfs-rt';
 import { getDirectionForTrip } from './gtfs-static';
 import { replaceVehicles, replaceStopTimes, logPoll, DbVehicle, DbStopTime } from '../db';
 import { checkGtfsFeedChanged, refreshGtfsData } from './gtfs-extract';
+import { vehicleEventBus } from '../events';
 
 const MAX_BACKOFF = 5 * 60 * 1000; // 5 minutes
 
@@ -15,6 +16,9 @@ let tripUpdatePollBusy = false;
 // Staleness detection state
 let consecutiveEmptyPolls = 0;
 let gtfsRefreshInProgress = false;
+
+// Change detection: only emit SSE when data actually differs
+let lastVehicleFingerprint = '';
 
 async function pollAndStoreVehicles(): Promise<void> {
   if (vehiclePollBusy) return;
@@ -42,6 +46,17 @@ async function pollAndStoreVehicles(): Promise<void> {
     });
 
     replaceVehicles(vehicles);
+
+    // Only push SSE when positions actually changed
+    const fingerprint = vehicles
+      .map((v) => `${v.vehicle_id}:${v.latitude}:${v.longitude}:${v.delay_seconds}`)
+      .sort()
+      .join('|');
+    if (fingerprint !== lastVehicleFingerprint) {
+      lastVehicleFingerprint = fingerprint;
+      vehicleEventBus.emit('vehicles:updated');
+    }
+
     logPoll('vehicles', 'ok', vehicles.length);
     console.log(`Collected ${vehicles.length} vehicles`);
     vehicleBackoff = config.vehiclePollInterval;

@@ -88,7 +88,7 @@ const STOP_TPC_MAP: Record<string, string> = {
 };
 
 function App() {
-  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastFetchTime, pollInterval } = useVehicles();
+  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
   const [showCommunity, setShowCommunity] = useState(false);
@@ -96,6 +96,7 @@ function App() {
   const busMapRef = useRef<BusMapHandle>(null);
 
   const handleSelectStop = useCallback((trip: SavedTrip) => {
+    setDirectionFilter(trip.direction as DirectionFilterValue);
     busMapRef.current?.flyToStop(trip.stopName, trip.direction);
     bottomSheetRef.current?.collapse();
   }, []);
@@ -156,7 +157,7 @@ function App() {
             onRemoveStop={removeTripByStop}
           />
           {vehiclesData && (
-            <UpdatePill lastUpdate={lastFetchTime} intervalMs={pollInterval} />
+            <UpdatePill lastUpdate={lastUpdateTime} connectionStatus={connectionStatus} />
           )}
           {vehiclesData && vehiclesData.vehicles.length === 0 && (
             <div className="no-service-overlay">

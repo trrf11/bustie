@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { departuresRouter } from './routes/departures';
 import { vehiclesRouter } from './routes/vehicles';
+import { sseRouter } from './routes/sse';
 import { statsRouter } from './routes/stats';
 
 /**
@@ -17,6 +18,7 @@ export function createApp() {
 
   // API routes
   app.use('/api/departures', departuresRouter);
+  app.use('/api/vehicles/stream', sseRouter);
   app.use('/api/vehicles', vehiclesRouter);
   app.use('/api/stats', statsRouter);
 

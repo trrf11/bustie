@@ -85,7 +85,17 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
 
     fetchNext();
     const interval = setInterval(fetchNext, 30_000);
-    return () => { cancelled = true; clearInterval(interval); };
+
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') fetchNext();
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [trip.tpc, trip.direction, trip.walkTimeMinutes]);
 
   // Re-render countdown every 15s

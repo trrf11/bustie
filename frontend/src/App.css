@@ -269,6 +269,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.update-pill--warn {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
 /* === Side Content === */
 .side-content {
   flex: 1;
