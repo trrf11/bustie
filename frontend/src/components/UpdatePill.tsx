@@ -7,10 +7,10 @@ interface UpdatePillProps {
 }
 
 export function UpdatePill({ lastUpdate, connectionStatus }: UpdatePillProps) {
-  const [, setTick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -22,7 +22,7 @@ export function UpdatePill({ lastUpdate, connectionStatus }: UpdatePillProps) {
     return <div className="update-pill update-pill--warn">Opnieuw verbinden...</div>;
   }
 
-  const elapsed = lastUpdate > 0 ? Math.floor((Date.now() - lastUpdate) / 1000) : 0;
+  const elapsed = lastUpdate > 0 ? Math.floor((now - lastUpdate) / 1000) : 0;
   const isPolling = connectionStatus === 'polling';
 
   let label: string;
