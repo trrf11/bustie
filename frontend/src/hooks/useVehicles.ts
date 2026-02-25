@@ -7,6 +7,7 @@ const POLL_INTERVAL = 60_000;
 const MAX_RAPID_FAILURES = 3;
 const RAPID_FAILURE_WINDOW = 5_000;
 const STALE_THRESHOLD = 45_000;
+const SSE_INIT_TIMEOUT = 10_000;
 
 export function useVehicles() {
   const [data, setData] = useState<VehiclesResponse | null>(null);
@@ -61,7 +62,18 @@ export function useVehicles() {
     esRef.current = es;
     setConnectionStatus('connecting');
 
+    // If the init event doesn't arrive in time (proxy buffering), fall back to polling
+    const initTimeout = setTimeout(() => {
+      if (esRef.current === es) {
+        console.warn('SSE init timeout — falling back to polling');
+        es.close();
+        esRef.current = null;
+        startPolling();
+      }
+    }, SSE_INIT_TIMEOUT);
+
     es.addEventListener('init', (e: MessageEvent) => {
+      clearTimeout(initTimeout);
       try {
         const payload = JSON.parse(e.data) as VehiclesResponse;
         setData(payload);
@@ -96,6 +108,7 @@ export function useVehicles() {
     });
 
     es.onerror = () => {
+      clearTimeout(initTimeout);
       const now = Date.now();
       failTimesRef.current.push(now);
 

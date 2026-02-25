@@ -14,11 +14,14 @@ export function UpdatePill({ lastUpdate, connectionStatus }: UpdatePillProps) {
     return () => clearInterval(id);
   }, []);
 
-  if (connectionStatus === 'connecting') {
+  // Only show "Verbinden..." if we have no data yet.
+  // Once REST has delivered initial data (lastUpdate > 0), show the update time
+  // even while SSE is still being established (proxy buffering can delay it).
+  if (connectionStatus === 'connecting' && lastUpdate === 0) {
     return <div className="update-pill update-pill--warn">Verbinden...</div>;
   }
 
-  if (connectionStatus === 'reconnecting') {
+  if (connectionStatus === 'reconnecting' && lastUpdate === 0) {
     return <div className="update-pill update-pill--warn">Opnieuw verbinden...</div>;
   }
 
