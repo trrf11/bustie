@@ -438,7 +438,6 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  margin-top: 8px;
   flex-wrap: wrap;
 }
 
@@ -819,7 +818,14 @@ body {
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* "Vertrek om" line */
+/* "Vertrek om" row with walk time button */
+.saved-trip-leaveby-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .saved-trip-leaveby {
   font-size: 0.9rem;
   color: var(--color-text);
@@ -860,18 +866,20 @@ body {
   font-weight: 700;
 }
 
-/* Walk time button — centered */
+/* Walk time button */
 .saved-trip-walktime {
   background: transparent;
   border: 1px solid var(--color-border);
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   cursor: pointer;
-  padding: 6px 16px;
+  padding: 4px 12px;
   border-radius: var(--radius);
   transition: color 0.15s, background 0.15s, border-color 0.15s;
   text-align: center;
   align-self: center;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .saved-trip-walktime:hover {

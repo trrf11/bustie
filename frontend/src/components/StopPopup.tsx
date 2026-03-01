@@ -127,15 +127,6 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: Stop
         <span className="stop-popup-loading">Laden...</span>
       ) : upcomingDeps.length > 0 ? (
         <>
-          {firstDep.leaveBy ? (
-            <>
-              <span className="stop-popup-leaveby">
-                🚶 Vertrek om <strong>{formatTime(firstDep.leaveBy)}</strong>
-              </span>
-              <div className="stop-popup-divider" />
-            </>
-          ) : null}
-
           <div className="stop-popup-times">
             {upcomingDeps.map((dep, i) => (
               <span key={i} className={`stop-popup-time-item${dep.delayed ? ' stop-popup-time-delayed' : ''}`}>
@@ -144,6 +135,15 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: Stop
               </span>
             ))}
           </div>
+
+          {firstDep.leaveBy ? (
+            <>
+              <div className="stop-popup-divider" />
+              <span className="stop-popup-leaveby">
+                🚶 Vertrek om {formatTime(firstDep.leaveBy)}
+              </span>
+            </>
+          ) : null}
         </>
       ) : (
         <span className="stop-popup-none">Geen vertrek gepland</span>

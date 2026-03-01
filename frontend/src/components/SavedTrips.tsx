@@ -180,14 +180,6 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
             <span className="saved-trip-loading">Laden...</span>
           ) : upcomingDeps.length > 0 ? (
             <>
-              {firstDep.leaveBy ? (
-                <>
-                  <span className="saved-trip-leaveby">
-                    🚶 Vertrek om <strong>{formatTime(firstDep.leaveBy)}</strong>
-                  </span>
-                  <div className="saved-trip-divider" />
-                </>
-              ) : null}
               <div className="saved-trip-times">
                 {upcomingDeps.map((dep, i) => (
                   <span key={i} className={`saved-trip-time-item${dep.delayed ? ' saved-trip-time-delayed' : ''}`}>
@@ -196,22 +188,47 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
                   </span>
                 ))}
               </div>
+              {firstDep.leaveBy ? (
+                <>
+                  <div className="saved-trip-divider" />
+                  <div className="saved-trip-leaveby-row">
+                    <span className="saved-trip-leaveby">
+                      🚶 Vertrek om {formatTime(firstDep.leaveBy)}
+                    </span>
+                    <button
+                      className="saved-trip-walktime"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowWalkTimePicker(!showWalkTimePicker);
+                        setShowCustomInput(false);
+                      }}
+                    >
+                      {`Looptijd: ${trip.walkTimeMinutes} min`}
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </>
           ) : (
             <span className="saved-trip-none">Geen vertrek</span>
           )}
 
-          {/* Walk time button — centered */}
-          <button
-            className="saved-trip-walktime"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowWalkTimePicker(!showWalkTimePicker);
-              setShowCustomInput(false);
-            }}
-          >
-            {trip.walkTimeMinutes > 0 ? `Looptijd: ${trip.walkTimeMinutes} min` : 'Looptijd toevoegen'}
-          </button>
+          {/* Walk time button — centered, only when no walk time set */}
+          {!firstDep?.leaveBy && (
+            <>
+            <div className="saved-trip-divider" />
+            <button
+              className="saved-trip-walktime"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowWalkTimePicker(!showWalkTimePicker);
+                setShowCustomInput(false);
+              }}
+            >
+              Looptijd toevoegen
+            </button>
+            </>
+          )}
 
           {/* Walk time quick-pick chips */}
           {showWalkTimePicker && (
