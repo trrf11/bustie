@@ -14,8 +14,9 @@ import { checkinRouter } from './routes/checkin';
 export function createApp() {
   const app = express();
 
-  app.use(cors());
-  app.use(express.json());
+  app.set('trust proxy', 1);
+  app.use(cors({ origin: process.env.CORS_ORIGIN || false }));
+  app.use(express.json({ limit: '10kb' }));
 
   // API routes
   app.use('/api/departures', departuresRouter);

@@ -5,6 +5,12 @@ import { vehicleEventBus } from '../events';
 
 export const sseRouter = Router();
 
+const MAX_CONNECTIONS_PER_IP = 3;
+const MAX_TOTAL_CONNECTIONS = 100;
+
+const connectionsPerIp = new Map<string, number>();
+let totalConnections = 0;
+
 function buildVehiclesPayload() {
   const dbVehicles = getVehiclesFromDb();
   const checkinCounts = getCheckinCounts();
@@ -40,6 +46,25 @@ function buildRoutePayload() {
 }
 
 sseRouter.get('/', (req: Request, res: Response) => {
+  const ip = req.ip || 'unknown';
+
+  // Check global connection limit
+  if (totalConnections >= MAX_TOTAL_CONNECTIONS) {
+    res.status(503).json({ error: 'Server at capacity. Try again later.' });
+    return;
+  }
+
+  // Check per-IP connection limit
+  const currentIpConns = connectionsPerIp.get(ip) || 0;
+  if (currentIpConns >= MAX_CONNECTIONS_PER_IP) {
+    res.status(429).json({ error: 'Too many connections. Close other tabs and retry.' });
+    return;
+  }
+
+  // Track connection
+  connectionsPerIp.set(ip, currentIpConns + 1);
+  totalConnections++;
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -89,5 +114,13 @@ sseRouter.get('/', (req: Request, res: Response) => {
     vehicleEventBus.off('vehicles:updated', onUpdate);
     vehicleEventBus.off('checkins:updated', onCheckinUpdate);
     clearInterval(heartbeat);
+
+    const remaining = (connectionsPerIp.get(ip) || 1) - 1;
+    if (remaining <= 0) {
+      connectionsPerIp.delete(ip);
+    } else {
+      connectionsPerIp.set(ip, remaining);
+    }
+    totalConnections--;
   });
 });

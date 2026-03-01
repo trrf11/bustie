@@ -5,13 +5,14 @@ import { createApp } from '../app';
 // Mock dependencies
 vi.mock('../db', () => ({
   getVehiclesFromDb: vi.fn(),
+  getCheckinCounts: vi.fn(),
 }));
 vi.mock('../services/gtfs-static', () => ({
   getRouteData: vi.fn(),
   getPrimaryShapes: vi.fn(),
 }));
 
-import { getVehiclesFromDb } from '../db';
+import { getVehiclesFromDb, getCheckinCounts } from '../db';
 import { getRouteData, getPrimaryShapes } from '../services/gtfs-static';
 
 const app = createApp();
@@ -42,10 +43,12 @@ const mockRouteData = {
 
 beforeEach(() => {
   vi.mocked(getVehiclesFromDb).mockReset();
+  vi.mocked(getCheckinCounts).mockReset();
   vi.mocked(getRouteData).mockReset();
   vi.mocked(getPrimaryShapes).mockReset();
 
   vi.mocked(getVehiclesFromDb).mockReturnValue([mockDbVehicle]);
+  vi.mocked(getCheckinCounts).mockReturnValue({});
   vi.mocked(getRouteData).mockReturnValue(mockRouteData as any);
   vi.mocked(getPrimaryShapes).mockReturnValue(mockShapes);
 });

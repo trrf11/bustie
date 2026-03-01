@@ -2,12 +2,13 @@ export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
 
   // OVapi REST API
+  // OVapi doesn't support HTTPS (invalid cert), must use HTTP
   ovpiBaseUrl: 'http://v0.ovapi.nl',
 
   // GTFS-RT feeds
   gtfsRtVehiclePositionsUrl: 'https://gtfs.ovapi.nl/nl/vehiclePositions.pb',
   gtfsRtTripUpdatesUrl: 'https://gtfs.ovapi.nl/nl/tripUpdates.pb',
-  gtfsStaticUrl: 'http://gtfs.ovapi.nl/nl/gtfs-nl.zip',
+  gtfsStaticUrl: 'https://gtfs.ovapi.nl/nl/gtfs-nl.zip',
 
   // Bus 80 identifiers (used for OVapi REST filtering)
   operatorCode: 'CXX',
