@@ -46,6 +46,10 @@ sseRouter.get('/', (req: Request, res: Response) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
+  // Disable Nagle's algorithm so small SSE writes (like checkin counts)
+  // are pushed to the client immediately instead of being buffered.
+  req.socket.setNoDelay(true);
+
   // Send initial payload with vehicles + route data
   const initPayload = {
     vehicles: buildVehiclesPayload(),
