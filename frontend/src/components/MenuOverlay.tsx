@@ -77,6 +77,10 @@ export function MenuOverlay({ onClose }: MenuOverlayProps) {
                 </a>
               </p>
             </div>
+
+            <div className="menu-about-version">
+              v{__APP_VERSION__}
+            </div>
           </div>
         </div>
       ) : (

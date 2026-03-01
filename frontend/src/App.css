@@ -1384,6 +1384,13 @@ body {
   font-size: 0.85rem;
 }
 
+.menu-about-version {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  padding-top: 12px;
+}
+
 /* === Shared time display styles === */
 .time-scheduled {
   text-decoration: line-through;
