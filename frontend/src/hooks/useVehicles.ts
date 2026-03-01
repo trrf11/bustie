@@ -182,5 +182,21 @@ export function useVehicles() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectSSE]);
 
-  return { data, error, loading, lastUpdateTime, connectionStatus };
+  // Optimistic update: immediately adjust a vehicle's checkin count
+  // so the badge updates without waiting for the SSE round-trip.
+  const updateCheckinCount = useCallback((vehicleId: string, delta: number) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        vehicles: prev.vehicles.map((v) =>
+          v.vehicleId === vehicleId
+            ? { ...v, checkinCount: Math.max(0, v.checkinCount + delta) }
+            : v,
+        ),
+      };
+    });
+  }, []);
+
+  return { data, error, loading, lastUpdateTime, connectionStatus, updateCheckinCount };
 }

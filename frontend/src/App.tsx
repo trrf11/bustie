@@ -89,7 +89,7 @@ const STOP_TPC_MAP: Record<string, string> = {
 };
 
 function App() {
-  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus } = useVehicles();
+  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus, updateCheckinCount } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
   const { checkin, loading: checkinLoading, doCheckin, doCheckout, isCheckedInto } = useCheckin();
@@ -102,6 +102,18 @@ function App() {
     busMapRef.current?.flyToStop(trip.stopName, trip.direction);
     bottomSheetRef.current?.collapse();
   }, []);
+
+  const handleCheckin = useCallback(async (vehicleId: string, tripId: string) => {
+    updateCheckinCount(vehicleId, 1);
+    await doCheckin(vehicleId, tripId);
+  }, [doCheckin, updateCheckinCount]);
+
+  const handleCheckout = useCallback(async () => {
+    if (checkin) {
+      updateCheckinCount(checkin.vehicleId, -1);
+    }
+    await doCheckout();
+  }, [doCheckout, checkin, updateCheckinCount]);
 
   const handleSaveStop = useCallback((stop: StopInfo, direction: number) => {
     const tpc = STOP_TPC_MAP[`${direction}:${stop.name}`];
@@ -166,8 +178,8 @@ function App() {
             onRemoveStop={removeTripByStop}
             checkinLoading={checkinLoading}
             isCheckedInto={isCheckedInto}
-            onCheckin={doCheckin}
-            onCheckout={doCheckout}
+            onCheckin={handleCheckin}
+            onCheckout={handleCheckout}
           />
           {vehiclesData && (
             <UpdatePill lastUpdate={lastUpdateTime} connectionStatus={connectionStatus} />
@@ -175,7 +187,7 @@ function App() {
           {checkin && (
             <button
               className="floating-checkout"
-              onClick={doCheckout}
+              onClick={handleCheckout}
               disabled={checkinLoading}
             >
               Check out
