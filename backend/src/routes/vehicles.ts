@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getVehiclesFromDb } from '../db';
+import { getVehiclesFromDb, getCheckinCounts } from '../db';
 import { getRouteData, getPrimaryShapes } from '../services/gtfs-static';
 
 export const vehiclesRouter = Router();
@@ -7,6 +7,7 @@ export const vehiclesRouter = Router();
 vehiclesRouter.get('/', (_req: Request, res: Response) => {
   const dbVehicles = getVehiclesFromDb();
   const routeData = getRouteData();
+  const checkinCounts = getCheckinCounts();
 
   const vehicles = dbVehicles.map((v) => ({
     vehicleId: v.vehicle_id,
@@ -16,6 +17,7 @@ vehiclesRouter.get('/', (_req: Request, res: Response) => {
     direction: v.direction,
     delaySeconds: v.delay_seconds,
     timestamp: v.updated_at,
+    checkinCount: checkinCounts[v.vehicle_id] || 0,
   }));
 
   // Get route shapes and stops

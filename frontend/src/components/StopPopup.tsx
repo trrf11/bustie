@@ -154,7 +154,7 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: Stop
           className="stop-popup-action"
           onClick={(e) => { e.stopPropagation(); onSave(); }}
         >
-          Toevoegen aan in mijn haltes
+          Toevoegen aan mijn haltes
         </button>
       )}
     </div>

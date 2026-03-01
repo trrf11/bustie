@@ -107,6 +107,28 @@ export function useVehicles() {
       }
     });
 
+    // Lightweight checkin count updates — merge into existing vehicle data
+    es.addEventListener('checkins', (e: MessageEvent) => {
+      try {
+        const { counts } = JSON.parse(e.data) as { counts: Record<string, number> };
+        setData((prev) => {
+          if (!prev) return prev;
+          // Bail out if no counts actually changed — avoids re-render cascade
+          const changed = prev.vehicles.some((v) => (counts[v.vehicleId] || 0) !== v.checkinCount);
+          if (!changed) return prev;
+          return {
+            ...prev,
+            vehicles: prev.vehicles.map((v) => ({
+              ...v,
+              checkinCount: counts[v.vehicleId] || 0,
+            })),
+          };
+        });
+      } catch {
+        // ignore parse errors
+      }
+    });
+
     es.onerror = () => {
       clearTimeout(initTimeout);
       const now = Date.now();

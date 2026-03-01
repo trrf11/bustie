@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getVehiclesFromDb } from '../db';
+import { getVehiclesFromDb, getCheckinCounts } from '../db';
 import { getRouteData, getPrimaryShapes } from '../services/gtfs-static';
 import { vehicleEventBus } from '../events';
 
@@ -7,6 +7,7 @@ export const sseRouter = Router();
 
 function buildVehiclesPayload() {
   const dbVehicles = getVehiclesFromDb();
+  const checkinCounts = getCheckinCounts();
   return dbVehicles.map((v) => ({
     vehicleId: v.vehicle_id,
     tripId: v.trip_id,
@@ -15,6 +16,7 @@ function buildVehiclesPayload() {
     direction: v.direction,
     delaySeconds: v.delay_seconds,
     timestamp: v.updated_at,
+    checkinCount: checkinCounts[v.vehicle_id] || 0,
   }));
 }
 
@@ -65,6 +67,14 @@ sseRouter.get('/', (req: Request, res: Response) => {
 
   vehicleEventBus.on('vehicles:updated', onUpdate);
 
+  // Push lightweight checkin count updates instantly
+  const onCheckinUpdate = () => {
+    const counts = getCheckinCounts();
+    res.write(`event: checkins\ndata: ${JSON.stringify({ counts })}\n\n`);
+  };
+
+  vehicleEventBus.on('checkins:updated', onCheckinUpdate);
+
   // Heartbeat every 25s to keep connection alive through Nginx
   const heartbeat = setInterval(() => {
     res.write(':heartbeat\n\n');
@@ -73,6 +83,7 @@ sseRouter.get('/', (req: Request, res: Response) => {
   // Cleanup on client disconnect
   req.on('close', () => {
     vehicleEventBus.off('vehicles:updated', onUpdate);
+    vehicleEventBus.off('checkins:updated', onCheckinUpdate);
     clearInterval(heartbeat);
   });
 });

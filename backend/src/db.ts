@@ -100,6 +100,27 @@ export function initDb(customPath?: string): void {
     WHERE polled_at < datetime('now', '-7 days')
   `);
 
+  // Create checkins table (one check-in per client, keyed by vehicle+trip)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS checkins (
+      client_id TEXT PRIMARY KEY,
+      vehicle_id TEXT NOT NULL,
+      trip_id TEXT NOT NULL,
+      checked_in_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_checkins_vehicle_trip
+    ON checkins(vehicle_id, trip_id)
+  `);
+
+  // Purge stale check-ins older than 2 hours
+  db.exec(`
+    DELETE FROM checkins
+    WHERE checked_in_at < datetime('now', '-2 hours')
+  `);
+
   console.log(`SQLite database initialized at ${dbPath} (WAL mode)`);
 }
 
@@ -226,6 +247,52 @@ export interface DelayStats {
   averageDelayMinutes: number;
   onTimePercentage: number;
   totalTripsTracked: number;
+}
+
+// --- Checkins table ---
+
+export function checkIn(clientId: string, vehicleId: string, tripId: string): void {
+  db.prepare(`
+    INSERT OR REPLACE INTO checkins (client_id, vehicle_id, trip_id, checked_in_at)
+    VALUES (?, ?, ?, datetime('now'))
+  `).run(clientId, vehicleId, tripId);
+}
+
+export function checkOut(clientId: string): void {
+  db.prepare('DELETE FROM checkins WHERE client_id = ?').run(clientId);
+}
+
+export function getCheckinCounts(): Record<string, number> {
+  const rows = db.prepare(`
+    SELECT v.vehicle_id, COUNT(c.client_id) as count
+    FROM vehicles v
+    JOIN checkins c ON c.vehicle_id = v.vehicle_id AND c.trip_id = v.trip_id
+    GROUP BY v.vehicle_id
+  `).all() as Array<{ vehicle_id: string; count: number }>;
+
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    counts[row.vehicle_id] = row.count;
+  }
+  return counts;
+}
+
+export function getClientCheckin(clientId: string): { vehicleId: string; tripId: string } | null {
+  const row = db.prepare(
+    'SELECT vehicle_id, trip_id FROM checkins WHERE client_id = ?'
+  ).get(clientId) as { vehicle_id: string; trip_id: string } | undefined;
+
+  if (!row) return null;
+  return { vehicleId: row.vehicle_id, tripId: row.trip_id };
+}
+
+export function purgeStaleCheckins(): void {
+  const result = db.prepare(
+    "DELETE FROM checkins WHERE checked_in_at < datetime('now', '-2 hours')"
+  ).run();
+  if (result.changes > 0) {
+    console.log(`Purged ${result.changes} stale check-in(s)`);
+  }
 }
 
 export function getDelayStats(period: 'today' | 'week' | 'month'): DelayStats {

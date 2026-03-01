@@ -16,6 +16,7 @@ export interface Vehicle {
   currentStatus: string;
   stopId: string;
   timestamp: string;
+  checkinCount: number;
 }
 
 export interface RouteDirection {

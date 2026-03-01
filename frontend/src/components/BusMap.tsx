@@ -21,11 +21,14 @@ function getBusIconSize(zoom: number): number {
   return Math.max(MIN_ICON_SIZE, Math.min(MAX_ICON_SIZE, size));
 }
 
-function createBusIcon(direction: number, size: number): L.DivIcon {
+function createBusIcon(direction: number, size: number, checkinCount: number): L.DivIcon {
   const flipped = direction === 1;
+  const badge = checkinCount > 0
+    ? `<span class="bus-checkin-badge">${checkinCount}</span>`
+    : '';
   return new L.DivIcon({
     className: 'bus-marker',
-    html: `<img src="/bus80.png" class="bus-marker-img${flipped ? ' bus-marker-img-flipped' : ''}">`,
+    html: `<div class="bus-marker-wrap"><img src="/bus80.png" class="bus-marker-img${flipped ? ' bus-marker-img-flipped' : ''}">${badge}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -size / 2],
@@ -56,6 +59,10 @@ interface BusMapProps {
   tpcMap: Record<string, string>;
   onSaveStop: (stop: StopInfo, direction: number) => void;
   onRemoveStop: (tpc: string, direction: number) => void;
+  checkinLoading: boolean;
+  isCheckedInto: (vehicleId: string, tripId: string) => boolean;
+  onCheckin: (vehicleId: string, tripId: string) => void;
+  onCheckout: () => void;
 }
 
 function FitBounds({ data }: { data: VehiclesResponse | null }) {
@@ -101,7 +108,21 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
  */
 const EASE_DURATION = 15_000; // ms
 
-function AnimatedBusMarker({ vehicle, icon }: { vehicle: VehiclesResponse['vehicles'][0]; icon: L.DivIcon }) {
+function AnimatedBusMarker({
+  vehicle,
+  icon,
+  isCheckedIn,
+  onCheckin,
+  onCheckout,
+  checkinLoading,
+}: {
+  vehicle: VehiclesResponse['vehicles'][0];
+  icon: L.DivIcon;
+  isCheckedIn: boolean;
+  onCheckin: () => void;
+  onCheckout: () => void;
+  checkinLoading: boolean;
+}) {
   const markerRef = useRef<L.Marker | null>(null);
   const animRef = useRef<number | null>(null);
   // Track interpolated position in a ref — react-leaflet snaps the marker
@@ -161,6 +182,24 @@ function AnimatedBusMarker({ vehicle, icon }: { vehicle: VehiclesResponse['vehic
         {vehicle.delaySeconds > 0
           ? <span className="bus-popup-delayed">{Math.round(vehicle.delaySeconds / 60)} min vertraagd</span>
           : <span className="bus-popup-ontime">Op tijd</span>}
+        {vehicle.checkinCount > 0 && (
+          <>
+            <br />
+            <span className="bus-popup-busties">{vehicle.checkinCount} {vehicle.checkinCount === 1 ? 'bustie' : 'busties'} aan boord</span>
+          </>
+        )}
+        <br />
+        <button
+          className={`bus-checkin-btn${isCheckedIn ? ' bus-checkin-btn--active' : ''}`}
+          disabled={checkinLoading}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isCheckedIn) onCheckout();
+            else onCheckin();
+          }}
+        >
+          {isCheckedIn ? 'Check out' : 'Check in'}
+        </button>
       </Popup>
     </Marker>
   );
@@ -172,7 +211,13 @@ function AnimatedBusMarker({ vehicle, icon }: { vehicle: VehiclesResponse['vehic
  * Listens to `zoomend` (fires once after gesture) instead of `zoom`
  * (fires every frame) to avoid fighting Leaflet's internal animation.
  */
-function BusVehicleMarkers({ vehicles }: { vehicles: VehiclesResponse['vehicles'] }) {
+function BusVehicleMarkers({ vehicles, checkinLoading, isCheckedInto, onCheckin, onCheckout }: {
+  vehicles: VehiclesResponse['vehicles'];
+  checkinLoading: boolean;
+  isCheckedInto: (vehicleId: string, tripId: string) => boolean;
+  onCheckin: (vehicleId: string, tripId: string) => void;
+  onCheckout: () => void;
+}) {
   const map = useMap();
   const [zoom, setZoom] = useState(map.getZoom());
 
@@ -182,13 +227,17 @@ function BusVehicleMarkers({ vehicles }: { vehicles: VehiclesResponse['vehicles'
     },
   });
 
-  const busIcons = useMemo(() => {
-    const size = getBusIconSize(zoom);
-    return {
-      toAmsterdam: createBusIcon(1, size),
-      toZandvoort: createBusIcon(2, size),
-    };
-  }, [zoom]);
+  const size = getBusIconSize(zoom);
+
+  // Create per-vehicle icons (cheap for 2-6 buses) to include checkinCount in badge
+  const vehicleIcons = useMemo(() => {
+    const icons = new Map<string, L.DivIcon>();
+    for (const v of vehicles) {
+      icons.set(v.vehicleId, createBusIcon(v.direction ?? 2, size, v.checkinCount));
+    }
+    return icons;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles.map((v) => `${v.vehicleId}:${v.direction}:${v.checkinCount}`).join(','), size]);
 
   return (
     <>
@@ -196,7 +245,11 @@ function BusVehicleMarkers({ vehicles }: { vehicles: VehiclesResponse['vehicles'
         <AnimatedBusMarker
           key={vehicle.vehicleId}
           vehicle={vehicle}
-          icon={vehicle.direction === 1 ? busIcons.toAmsterdam : busIcons.toZandvoort}
+          icon={vehicleIcons.get(vehicle.vehicleId) || createBusIcon(vehicle.direction ?? 2, size, 0)}
+          isCheckedIn={isCheckedInto(vehicle.vehicleId, vehicle.tripId)}
+          onCheckin={() => onCheckin(vehicle.vehicleId, vehicle.tripId)}
+          onCheckout={() => onCheckout()}
+          checkinLoading={checkinLoading}
         />
       ))}
     </>
@@ -265,7 +318,7 @@ const StopMarkerLayer = memo(function StopMarkerLayer({
   );
 });
 
-function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onRemoveStop, mapRef, stopMarkerRefs }: BusMapProps & {
+function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onRemoveStop, checkinLoading, isCheckedInto, onCheckin, onCheckout, mapRef, stopMarkerRefs }: BusMapProps & {
   mapRef: React.MutableRefObject<L.Map | null>;
   stopMarkerRefs: React.MutableRefObject<Map<string, L.Marker>>;
 }) {
@@ -344,7 +397,13 @@ function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onR
       )}
 
       {/* Bus vehicle markers — isolated to prevent zoom jitter */}
-      <BusVehicleMarkers vehicles={filteredVehicles} />
+      <BusVehicleMarkers
+        vehicles={filteredVehicles}
+        checkinLoading={checkinLoading}
+        isCheckedInto={isCheckedInto}
+        onCheckin={onCheckin}
+        onCheckout={onCheckout}
+      />
     </>
   );
 }

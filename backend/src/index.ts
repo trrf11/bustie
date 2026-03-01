@@ -1,5 +1,5 @@
 import { config } from './config';
-import { initDb } from './db';
+import { initDb, purgeStaleCheckins } from './db';
 import { loadRouteData, getRouteData } from './services/gtfs-static';
 import { refreshGtfsData } from './services/gtfs-extract';
 import { startCollector } from './services/collector';
@@ -29,6 +29,9 @@ async function main() {
 
   // Start departure polling (OVapi REST → in-memory cache)
   startDeparturePolling();
+
+  // Purge stale check-ins every 10 minutes
+  setInterval(() => purgeStaleCheckins(), 10 * 60 * 1000);
 
   const app = createApp();
   app.listen(config.port, () => {

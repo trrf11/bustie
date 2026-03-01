@@ -10,6 +10,7 @@ import { MenuOverlay } from './components/MenuOverlay';
 import { UpdatePill } from './components/UpdatePill';
 import { useVehicles } from './hooks/useVehicles';
 import { useSavedTrips } from './hooks/useSavedTrips';
+import { useCheckin } from './hooks/useCheckin';
 import type { SavedTrip, StopInfo } from './types';
 import './App.css';
 
@@ -91,6 +92,7 @@ function App() {
   const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
+  const { checkin, loading: checkinLoading, doCheckin, doCheckout, isCheckedInto } = useCheckin();
   const [showMenu, setShowMenu] = useState(false);
   const bottomSheetRef = useRef<BottomSheetHandle>(null);
   const busMapRef = useRef<BusMapHandle>(null);
@@ -162,9 +164,22 @@ function App() {
             tpcMap={STOP_TPC_MAP}
             onSaveStop={handleSaveStop}
             onRemoveStop={removeTripByStop}
+            checkinLoading={checkinLoading}
+            isCheckedInto={isCheckedInto}
+            onCheckin={doCheckin}
+            onCheckout={doCheckout}
           />
           {vehiclesData && (
             <UpdatePill lastUpdate={lastUpdateTime} connectionStatus={connectionStatus} />
+          )}
+          {checkin && (
+            <button
+              className="floating-checkout"
+              onClick={doCheckout}
+              disabled={checkinLoading}
+            >
+              Check out
+            </button>
           )}
           {vehiclesData && vehiclesData.vehicles.length === 0 && (
             <div className="no-service-overlay">
