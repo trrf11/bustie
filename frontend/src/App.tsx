@@ -6,7 +6,7 @@ import { SavedTrips } from './components/SavedTrips';
 import { InstagramFeed } from './components/InstagramFeed';
 import { Accordion } from './components/Accordion';
 import { BottomSheet, type BottomSheetHandle } from './components/BottomSheet';
-import { CommunityOverlay } from './components/CommunityOverlay';
+import { MenuOverlay } from './components/MenuOverlay';
 import { UpdatePill } from './components/UpdatePill';
 import { useVehicles } from './hooks/useVehicles';
 import { useSavedTrips } from './hooks/useSavedTrips';
@@ -91,7 +91,7 @@ function App() {
   const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
-  const [showCommunity, setShowCommunity] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const bottomSheetRef = useRef<BottomSheetHandle>(null);
   const busMapRef = useRef<BusMapHandle>(null);
 
@@ -116,15 +116,22 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <img
-          src="/bus80-logo.png"
-          alt="Bustie logo"
-          className="app-logo"
-          onClick={() => setShowCommunity(true)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowCommunity(true); }}
-        />
+        <button
+          className="app-menu-trigger"
+          onClick={() => setShowMenu(true)}
+          aria-label="Menu openen"
+        >
+          <svg className="app-menu-kebab" width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <circle cx="9" cy="3.5" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="9" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="14.5" r="1.5" fill="currentColor"/>
+          </svg>
+          <img
+            src="/bus80-logo.png"
+            alt="Bustie logo"
+            className="app-logo"
+          />
+        </button>
         <h1>Hey, bustie!</h1>
         {vehiclesData && (() => {
           const count = directionFilter === 'all'
@@ -209,8 +216,8 @@ function App() {
         </BottomSheet>
       </main>
 
-      {showCommunity && (
-        <CommunityOverlay onClose={() => setShowCommunity(false)} />
+      {showMenu && (
+        <MenuOverlay onClose={() => setShowMenu(false)} />
       )}
     </div>
   );
