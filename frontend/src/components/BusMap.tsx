@@ -316,7 +316,7 @@ function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onR
         <Polyline positions={dir1Shape} color="#006772" weight={4} opacity={0.7} />
       )}
       {dir2Active && dir2Shape.length > 0 && (
-        <Polyline positions={dir2Shape} color="#dc2626" weight={4} opacity={0.7} />
+        <Polyline positions={dir2Shape} color="#D1EA32" weight={4} opacity={0.7} />
       )}
 
       {/* Stop markers — memoized per direction to survive vehicle polls */}

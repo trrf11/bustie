@@ -26,8 +26,6 @@ export function UpdatePill({ lastUpdate, connectionStatus }: UpdatePillProps) {
   }
 
   const elapsed = lastUpdate > 0 ? Math.floor((now - lastUpdate) / 1000) : 0;
-  const isPolling = connectionStatus === 'polling';
-
   let label: string;
   if (elapsed < 5) {
     label = 'Zojuist bijgewerkt';
@@ -35,10 +33,6 @@ export function UpdatePill({ lastUpdate, connectionStatus }: UpdatePillProps) {
     label = `${elapsed}s geleden`;
   } else {
     label = `${Math.floor(elapsed / 60)}m geleden`;
-  }
-
-  if (isPolling) {
-    label += ' (polling)';
   }
 
   return <div className="update-pill">{label}</div>;

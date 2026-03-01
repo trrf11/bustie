@@ -9,7 +9,12 @@ interface SavedTripsProps {
   onSelectStop?: (trip: SavedTrip) => void;
 }
 
-const WALK_TIME_PRESETS = [1, 2, 5, 10, 15];
+const WALK_TIME_PRESETS = [5, 10, 15];
+
+function stripCity(name: string): string {
+  const idx = name.indexOf(', ');
+  return idx >= 0 ? name.substring(idx + 2) : name;
+}
 
 function formatTime(isoString: string): string {
   const date = new Date(isoString);
@@ -23,6 +28,12 @@ function formatMinutesUntil(isoString: string): string {
   return `${diff} min`;
 }
 
+function scheduledTime(expected: string, delayMin: number): string {
+  const d = new Date(expected);
+  d.setMinutes(d.getMinutes() - delayMin);
+  return formatTime(d.toISOString());
+}
+
 function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, dragHandleProps }: {
   trip: SavedTrip;
   index: number;
@@ -34,12 +45,12 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
     onTouchStart: (e: React.TouchEvent) => void;
   };
 }) {
-  const [nextDep, setNextDep] = useState<{
+  const [upcomingDeps, setUpcomingDeps] = useState<{
     expected: string;
     delayed: boolean;
     delayMin: number;
     leaveBy: string | null;
-  } | null>(null);
+  }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showWalkTimePicker, setShowWalkTimePicker] = useState(false);
   const [customWalkTime, setCustomWalkTime] = useState('');
@@ -62,22 +73,18 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
         if (cancelled) return;
 
         const now = Date.now();
-        const upcoming = data.departures.find(
-          (d) => d.source === 'realtime' || new Date(d.expectedDeparture).getTime() > now
-        );
-
-        if (upcoming) {
-          setNextDep({
-            expected: upcoming.expectedDeparture,
-            delayed: upcoming.isDelayed,
-            delayMin: upcoming.delayMinutes,
-            leaveBy: upcoming.leaveBy,
-          });
-        } else {
-          setNextDep(null);
-        }
+        const upcoming = data.departures
+          .filter((d) => d.source === 'realtime' || new Date(d.expectedDeparture).getTime() > now)
+          .slice(0, 5)
+          .map((d) => ({
+            expected: d.expectedDeparture,
+            delayed: d.isDelayed,
+            delayMin: d.delayMinutes,
+            leaveBy: d.leaveBy,
+          }));
+        setUpcomingDeps(upcoming);
       } catch {
-        if (!cancelled) setNextDep(null);
+        if (!cancelled) setUpcomingDeps([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -114,17 +121,22 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
   function handleCustomSubmit() {
     const val = parseInt(customWalkTime, 10);
     if (!isNaN(val) && val >= 0 && val <= 60) {
+      // Dismiss keyboard before updating state to prevent viewport corruption
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       onUpdateWalkTime(val);
       setShowWalkTimePicker(false);
       setShowCustomInput(false);
     }
   }
 
+  const firstDep = upcomingDeps[0] ?? null;
+
   return (
     <div className="saved-trip-card" data-index={index} onClick={onSelect} style={{ cursor: onSelect ? 'pointer' : undefined }}>
       <div className="saved-trip-row">
         <div
           className="drag-handle"
+          data-vaul-no-drag
           {...dragHandleProps}
           onClick={(e) => e.stopPropagation()}
         >
@@ -139,75 +151,76 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
         </div>
 
         <div className="saved-trip-content">
-          {/* Top row: stop name + remove button */}
+          {/* Header: stop name + badge + remove */}
           <div className="saved-trip-header">
-            <div className="saved-trip-stop">{trip.stopName}</div>
-            <button
-              className="saved-trip-remove"
-              onClick={(e) => { e.stopPropagation(); onRemove(); }}
-              title="Verwijderen"
-            >
-              &times;
-            </button>
-          </div>
-
-          {/* Meta row: direction tag + countdown */}
-          <div className="saved-trip-meta">
-            <span className={`saved-trip-direction ${trip.direction === 1 ? 'dir-amsterdam' : 'dir-zandvoort'}`}>
-              {trip.directionLabel}
-            </span>
-            {loading ? (
-              <span className="saved-trip-countdown">Laden...</span>
-            ) : nextDep ? (
-              <span className="saved-trip-countdown">
-                Volgende bus over <strong>{formatMinutesUntil(nextDep.expected)}</strong>
-                {nextDep.delayed && <span className="delay-badge">+{nextDep.delayMin} min</span>}
-              </span>
-            ) : (
-              <span className="saved-trip-countdown">Geen vertrek</span>
-            )}
-          </div>
-
-          {/* Walk time + vertrek om grouped together */}
-          {nextDep && nextDep.leaveBy ? (
-            <div className="saved-trip-walkgroup">
-              <button
-                className="saved-trip-walktime"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowWalkTimePicker(!showWalkTimePicker);
-                  setShowCustomInput(false);
-                }}
-              >
-                🚶 {trip.walkTimeMinutes} min
-              </button>
-              <span className="saved-trip-leaveby">
-                Vertrek om <strong>{formatTime(nextDep.leaveBy)}</strong>
-              </span>
+            <div className="saved-trip-header-left">
+              <div className="saved-trip-stop">{stripCity(trip.stopName)}</div>
+              <span className="saved-trip-direction">{trip.directionLabel}</span>
             </div>
+            <div className="saved-trip-header-right">
+              {!loading && firstDep && (
+                <span className={`saved-trip-badge${firstDep.delayed ? ' saved-trip-badge--delayed' : ''}`}>
+                  {formatMinutesUntil(firstDep.expected)}
+                </span>
+              )}
+              <button
+                className="saved-trip-remove"
+                onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                title="Verwijderen"
+              >
+                &times;
+              </button>
+            </div>
+          </div>
+
+          <div className="saved-trip-divider" />
+
+          {/* Departure times row */}
+          {loading ? (
+            <span className="saved-trip-loading">Laden...</span>
+          ) : upcomingDeps.length > 0 ? (
+            <>
+              {firstDep.leaveBy ? (
+                <>
+                  <span className="saved-trip-leaveby">
+                    🚶 Vertrek om <strong>{formatTime(firstDep.leaveBy)}</strong>
+                  </span>
+                  <div className="saved-trip-divider" />
+                </>
+              ) : null}
+              <div className="saved-trip-times">
+                {upcomingDeps.map((dep, i) => (
+                  <span key={i} className={`saved-trip-time-item${dep.delayed ? ' saved-trip-time-delayed' : ''}`}>
+                    {dep.delayed && <span className="time-scheduled">{scheduledTime(dep.expected, dep.delayMin)}</span>}
+                    <span className={dep.delayed ? 'time-actual' : ''}>{formatTime(dep.expected)}</span>
+                  </span>
+                ))}
+              </div>
+            </>
           ) : (
-            <div className="saved-trip-walkgroup">
-              <button
-                className="saved-trip-walktime"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowWalkTimePicker(!showWalkTimePicker);
-                  setShowCustomInput(false);
-                }}
-              >
-                {trip.walkTimeMinutes > 0 ? `🚶 ${trip.walkTimeMinutes} min` : '🚶 Looptijd'}
-              </button>
-            </div>
+            <span className="saved-trip-none">Geen vertrek</span>
           )}
+
+          {/* Walk time button — centered */}
+          <button
+            className="saved-trip-walktime"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowWalkTimePicker(!showWalkTimePicker);
+              setShowCustomInput(false);
+            }}
+          >
+            {trip.walkTimeMinutes > 0 ? `Looptijd: ${trip.walkTimeMinutes} min` : 'Looptijd toevoegen'}
+          </button>
 
           {/* Walk time quick-pick chips */}
           {showWalkTimePicker && (
-            <div className="walktime-picker" onClick={(e) => e.stopPropagation()}>
+            <div className="walktime-picker" data-vaul-no-drag onClick={(e) => e.stopPropagation()}>
               <div className="walktime-chips">
                 {WALK_TIME_PRESETS.map((min) => (
                   <button
                     key={min}
-                    className={`walktime-chip${trip.walkTimeMinutes === min ? ' walktime-chip-active' : ''}`}
+                    className={`walktime-chip${trip.walkTimeMinutes === min && !showCustomInput ? ' walktime-chip-active' : ''}`}
                     onClick={() => handlePresetSelect(min)}
                   >
                     {min}
@@ -220,8 +233,16 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
                     setCustomWalkTime('');
                   }}
                 >
-                  Andere
+                  Anders
                 </button>
+                {trip.walkTimeMinutes > 0 && (
+                  <button
+                    className="walktime-chip walktime-chip-remove walktime-chip-remove-right"
+                    onClick={() => handlePresetSelect(0)}
+                  >
+                    &times;
+                  </button>
+                )}
               </div>
               {showCustomInput && (
                 <div className="walktime-custom">
@@ -239,7 +260,6 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
                   <button className="walktime-custom-ok" onClick={handleCustomSubmit}>OK</button>
                 </div>
               )}
-              <span className="walktime-label">minuten looptijd</span>
             </div>
           )}
         </div>
@@ -300,6 +320,7 @@ export function SavedTrips({ trips, onRemove, onUpdateWalkTime, onReorder, onSel
 
     function onTouchMove(e: TouchEvent) {
       if (e.touches.length === 1) {
+        e.preventDefault();
         onMove(e.touches[0].clientY);
       }
     }
@@ -314,7 +335,7 @@ export function SavedTrips({ trips, onRemove, onUpdateWalkTime, onReorder, onSel
 
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onEnd);
-    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('touchend', onEnd);
     window.addEventListener('touchcancel', onEnd);
 

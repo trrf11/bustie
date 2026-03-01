@@ -38,6 +38,7 @@ export const BottomSheet = forwardRef<BottomSheetHandle, BottomSheetProps>(
         activeSnapPoint={snap}
         setActiveSnapPoint={setSnap}
         dismissible={false}
+        repositionInputs={false}
       >
         <Drawer.Portal>
           <Drawer.Content className="bottom-sheet">

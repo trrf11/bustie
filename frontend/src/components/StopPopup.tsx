@@ -10,6 +10,11 @@ interface StopPopupProps {
   onRemove: () => void;
 }
 
+function stripCity(name: string): string {
+  const idx = name.indexOf(', ');
+  return idx >= 0 ? name.substring(idx + 2) : name;
+}
+
 function formatTime(isoString: string): string {
   const date = new Date(isoString);
   return date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
@@ -22,13 +27,19 @@ function formatMinutesUntil(isoString: string): string {
   return `${diff} min`;
 }
 
-export function StopPopup({ stopName, tpc, direction, savedTrips, onSave, onRemove }: StopPopupProps) {
-  const [nextDep, setNextDep] = useState<{
+function scheduledTime(expected: string, delayMin: number): string {
+  const d = new Date(expected);
+  d.setMinutes(d.getMinutes() - delayMin);
+  return formatTime(d.toISOString());
+}
+
+export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: StopPopupProps) {
+  const [upcomingDeps, setUpcomingDeps] = useState<{
     expected: string;
     leaveBy: string | null;
     delayed: boolean;
     delayMin: number;
-  } | null>(null);
+  }[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0);
 
@@ -55,24 +66,18 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave, onRemo
         if (cancelled) return;
 
         const now = Date.now();
-        // Show realtime departures even if expected time has barely passed —
-        // the backend only sends these when the bus hasn't actually departed yet.
-        const upcoming = data.departures.find(
-          (d) => d.source === 'realtime' || new Date(d.expectedDeparture).getTime() > now
-        );
-
-        if (upcoming) {
-          setNextDep({
-            expected: upcoming.expectedDeparture,
-            leaveBy: upcoming.leaveBy,
-            delayed: upcoming.isDelayed,
-            delayMin: upcoming.delayMinutes,
-          });
-        } else {
-          setNextDep(null);
-        }
+        const upcoming = data.departures
+          .filter((d) => d.source === 'realtime' || new Date(d.expectedDeparture).getTime() > now)
+          .slice(0, 3)
+          .map((d) => ({
+            expected: d.expectedDeparture,
+            leaveBy: d.leaveBy,
+            delayed: d.isDelayed,
+            delayMin: d.delayMinutes,
+          }));
+        setUpcomingDeps(upcoming);
       } catch {
-        if (!cancelled) setNextDep(null);
+        if (!cancelled) setUpcomingDeps([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -100,51 +105,57 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave, onRemo
   }, []);
 
   const directionLabel = direction === 1 ? 'Richting Amsterdam' : 'Richting Zandvoort';
+  const firstDep = upcomingDeps[0] ?? null;
 
   return (
     <div className="stop-popup">
       <div className="stop-popup-header">
-        <strong className="stop-popup-name">{stopName}</strong>
-        <button
-          className={`stop-popup-save${isSaved ? ' stop-popup-saved' : ''}`}
-          onClick={(e) => { e.stopPropagation(); if (isSaved) { onRemove(); } else { onSave(); } }}
-          title={isSaved ? 'Halte verwijderen' : 'Halte opslaan'}
-        >
-          {isSaved ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-          )}
-        </button>
+        <div className="stop-popup-header-left">
+          <strong className="stop-popup-name">{stripCity(stopName)}</strong>
+          <span className="stop-popup-direction">{directionLabel}</span>
+        </div>
+        {!loading && firstDep && (
+          <span className={`stop-popup-badge${firstDep.delayed ? ' stop-popup-badge--delayed' : ''}`}>
+            {formatMinutesUntil(firstDep.expected)}
+          </span>
+        )}
       </div>
-      <span className="stop-popup-direction">{directionLabel}</span>
+
+      <div className="stop-popup-divider" />
 
       {loading ? (
         <span className="stop-popup-loading">Laden...</span>
-      ) : nextDep ? (
-        <div className="stop-popup-departure">
-          <span className="stop-popup-countdown">
-            Volgende bus over <strong>{formatMinutesUntil(nextDep.expected)}</strong>
-          </span>
-          {nextDep.delayed && (
-            <span className="delay-badge">+{nextDep.delayMin} min</span>
-          )}
-          {nextDep.leaveBy ? (
-            <span className="stop-popup-leaveby">
-              Vertrek om <strong>{formatTime(nextDep.leaveBy)}</strong>
-            </span>
-          ) : (
-            <span className="stop-popup-time">
-              <strong>{formatTime(nextDep.expected)}</strong>
-            </span>
-          )}
-        </div>
+      ) : upcomingDeps.length > 0 ? (
+        <>
+          {firstDep.leaveBy ? (
+            <>
+              <span className="stop-popup-leaveby">
+                🚶 Vertrek om <strong>{formatTime(firstDep.leaveBy)}</strong>
+              </span>
+              <div className="stop-popup-divider" />
+            </>
+          ) : null}
+
+          <div className="stop-popup-times">
+            {upcomingDeps.map((dep, i) => (
+              <span key={i} className={`stop-popup-time-item${dep.delayed ? ' stop-popup-time-delayed' : ''}`}>
+                {dep.delayed && <span className="time-scheduled">{scheduledTime(dep.expected, dep.delayMin)}</span>}
+                <span className={dep.delayed ? 'time-actual' : ''}>{formatTime(dep.expected)}</span>
+              </span>
+            ))}
+          </div>
+        </>
       ) : (
         <span className="stop-popup-none">Geen vertrek gepland</span>
+      )}
+
+      {!isSaved && (
+        <button
+          className="stop-popup-action"
+          onClick={(e) => { e.stopPropagation(); onSave(); }}
+        >
+          Toevoegen aan in mijn haltes
+        </button>
       )}
     </div>
   );

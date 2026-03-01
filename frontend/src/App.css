@@ -350,6 +350,7 @@ body {
   overflow: visible;
 }
 
+/* === Shared: delay badge (inline) === */
 .delay-badge {
   background: var(--color-danger);
   color: white;
@@ -357,12 +358,18 @@ body {
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
+  margin-left: 4px;
+}
+
+.delay-badge-sm {
+  font-size: 0.6rem;
+  padding: 1px 4px;
 }
 
 /* === Stop Popup (map) === */
 .stop-popup {
-  min-width: 180px;
-  max-width: 240px;
+  min-width: 200px;
+  max-width: 260px;
 }
 
 .stop-popup-header {
@@ -372,74 +379,120 @@ body {
   gap: 8px;
 }
 
-.stop-popup-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1.3;
+.stop-popup-header-left {
   flex: 1;
   min-width: 0;
 }
 
-.stop-popup-save {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 2px;
-  flex-shrink: 0;
-  transition: color 0.15s;
-  display: flex;
-  align-items: center;
-}
-
-.stop-popup-save:hover {
-  color: var(--color-accent);
-}
-
-.stop-popup-saved {
-  color: var(--color-accent);
+.stop-popup-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
+  display: block;
 }
 
 .stop-popup-direction {
-  display: block;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
-  margin-bottom: 8px;
+  display: block;
+  margin-top: 2px;
 }
 
-.stop-popup-departure {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* Countdown badge — popup */
+.stop-popup-badge {
+  background: var(--color-accent);
+  color: #0a1a1c;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.stop-popup-countdown {
-  font-size: 0.85rem;
-  color: var(--color-text);
+.stop-popup-badge--delayed {
+  background: var(--color-danger);
+  color: white;
 }
 
-.stop-popup-countdown strong {
-  color: var(--color-accent);
-  font-size: 0.95rem;
+.stop-popup-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 6px 0;
 }
 
 .stop-popup-leaveby {
-  font-size: 0.85rem;
-  color: var(--color-warning);
+  font-size: 0.9rem;
+  color: var(--color-text);
 }
 
 .stop-popup-leaveby strong {
-  font-size: 0.95rem;
-}
-
-.stop-popup-time {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
-.stop-popup-time strong {
-  font-size: 0.95rem;
   color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Departure times row — popup */
+.stop-popup-times {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.stop-popup-time-item {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.3;
+}
+
+.stop-popup-time-delayed .time-scheduled {
+  text-decoration: line-through;
+  color: var(--color-danger);
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.stop-popup-time-delayed .time-actual {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+/* Save/remove action button — popup */
+.stop-popup-action {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: center;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.stop-popup-action:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+.stop-popup-action--saved {
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
+.stop-popup-action--saved:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 .stop-popup-loading,
@@ -620,6 +673,7 @@ body {
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 12px;
+  text-align: center;
 }
 
 .saved-trips-list {
@@ -646,6 +700,8 @@ body {
 
 .saved-trip-wrapper.dragging {
   opacity: 0.5;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .saved-trip-wrapper.drag-over {
@@ -667,10 +723,12 @@ body {
   padding: 2px;
   flex-shrink: 0;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   transition: opacity 0.15s;
   display: flex;
   align-items: center;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .drag-handle:hover {
@@ -697,10 +755,45 @@ body {
   gap: 8px;
 }
 
+.saved-trip-header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.saved-trip-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .saved-trip-stop {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
   line-height: 1.3;
+}
+
+.saved-trip-direction {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* Countdown badge — saved trip */
+.saved-trip-badge {
+  background: var(--color-accent);
+  color: #0a1a1c;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  white-space: nowrap;
+}
+
+.saved-trip-badge--delayed {
+  background: var(--color-danger);
+  color: white;
 }
 
 .saved-trip-remove {
@@ -710,92 +803,83 @@ body {
   font-size: 1.25rem;
   cursor: pointer;
   line-height: 1;
-  padding: 4px 4px;
-  min-width: 28px;
-  min-height: 28px;
+  padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin: -4px -4px 0 0;
 }
 
 .saved-trip-remove:hover {
   color: var(--color-danger);
 }
 
-/* Meta row: direction tag + countdown inline */
-.saved-trip-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+.saved-trip-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.saved-trip-direction {
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 100px;
-  flex-shrink: 0;
-}
-
-.saved-trip-direction.dir-amsterdam {
-  background: rgba(0, 103, 114, 0.2);
-  color: #33b5c2;
-}
-
-.saved-trip-direction.dir-zandvoort {
-  background: rgba(220, 38, 38, 0.2);
-  color: #f87171;
-}
-
-.saved-trip-countdown {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.saved-trip-countdown strong {
+/* "Vertrek om" line */
+.saved-trip-leaveby {
+  font-size: 0.9rem;
   color: var(--color-text);
 }
 
-/* Walk time + vertrek om grouped row */
-.saved-trip-walkgroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  padding: 6px 10px;
+.saved-trip-leaveby strong {
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 700;
 }
 
+/* Departure times row — saved trip */
+.saved-trip-times {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.saved-trip-time-item {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.3;
+}
+
+.saved-trip-time-delayed .time-scheduled {
+  text-decoration: line-through;
+  color: var(--color-danger);
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.saved-trip-time-delayed .time-actual {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+/* Walk time button — centered */
 .saved-trip-walktime {
-  background: none;
-  border: none;
+  background: transparent;
+  border: 1px solid var(--color-border);
   color: var(--color-text-muted);
   font-size: 0.75rem;
   cursor: pointer;
-  padding: 2px 0;
-  transition: color 0.15s;
-  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  text-align: center;
+  align-self: center;
 }
 
 .saved-trip-walktime:hover {
   color: var(--color-text);
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
 }
 
-.saved-trip-leaveby {
-  font-size: 0.8rem;
-  color: var(--color-warning);
-  margin-left: auto;
-}
-
-.saved-trip-leaveby strong {
-  font-size: 0.85rem;
-}
 
 /* Walk time quick-pick chips */
 .walktime-picker {
@@ -838,6 +922,21 @@ body {
   border-color: var(--color-accent);
   color: #0a1a1c;
   font-weight: 600;
+}
+
+.walktime-chip-remove {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.walktime-chip-remove:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
+}
+
+.walktime-chip-remove-right {
+  margin-left: auto;
 }
 
 .walktime-chip-other {
@@ -883,10 +982,6 @@ body {
   background: var(--color-primary-light);
 }
 
-.walktime-label {
-  font-size: 0.7rem;
-  color: var(--color-text-muted);
-}
 
 .saved-trip-loading {
   font-size: 0.8rem;
@@ -899,7 +994,7 @@ body {
 }
 
 
-/* === Desktop Layout (≥768px) === */
+/* === Desktop Layout (>=768px) === */
 @media (min-width: 768px) {
   .app-main {
     flex-direction: row;
@@ -1066,4 +1161,17 @@ body {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* === Shared time display styles === */
+.time-scheduled {
+  text-decoration: line-through;
+  color: var(--color-danger);
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.time-actual {
+  color: var(--color-danger);
+  font-weight: 700;
 }
