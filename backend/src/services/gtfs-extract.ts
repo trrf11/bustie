@@ -163,6 +163,7 @@ export async function checkGtfsFeedChanged(): Promise<{
   const res = await fetch(config.gtfsStaticUrl, {
     method: 'HEAD',
     headers: { 'User-Agent': config.userAgent },
+    signal: AbortSignal.timeout(10_000),
   });
 
   const etag = res.headers.get('etag') || '';
@@ -218,6 +219,7 @@ async function doRefresh(): Promise<boolean> {
   const headRes = await fetch(config.gtfsStaticUrl, {
     method: 'HEAD',
     headers: { 'User-Agent': config.userAgent },
+    signal: AbortSignal.timeout(10_000),
   });
   const lastModified = headRes.headers.get('last-modified') || '';
   const etag = headRes.headers.get('etag') || '';
@@ -281,6 +283,7 @@ async function downloadZip(zipPath: string): Promise<void> {
   console.log(`${LOG_PREFIX} Downloading GTFS feed...`);
   const res = await fetch(config.gtfsStaticUrl, {
     headers: { 'User-Agent': config.userAgent },
+    signal: AbortSignal.timeout(120_000),
   });
   if (!res.ok || !res.body) {
     throw new Error(`Failed to download GTFS: ${res.status}`);

@@ -59,6 +59,7 @@ export async function fetchDepartures(tpc: string): Promise<DepartureResult> {
       'User-Agent': config.userAgent,
       'Accept-Encoding': 'gzip',
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {

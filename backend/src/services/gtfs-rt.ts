@@ -60,6 +60,7 @@ export async function fetchTripUpdates(): Promise<TripUpdate[]> {
       'User-Agent': config.userAgent,
       'Accept-Encoding': 'gzip',
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {
@@ -137,6 +138,7 @@ export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
       'User-Agent': config.userAgent,
       'Accept-Encoding': 'gzip',
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {
