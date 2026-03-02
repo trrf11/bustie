@@ -33,6 +33,7 @@ export interface VehiclesResponse {
   };
   stale: boolean;
   timestamp: string;
+  version?: string;
 }
 
 export interface Departure {

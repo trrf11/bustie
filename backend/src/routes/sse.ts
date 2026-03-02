@@ -1,7 +1,23 @@
 import { Router, Request, Response } from 'express';
+import { readFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
 import { getVehiclesFromDb, getCheckinCounts } from '../db';
 import { getRouteData, getPrimaryShapes } from '../services/gtfs-static';
 import { vehicleEventBus } from '../events';
+
+// Read app version once at startup
+const APP_VERSION = (() => {
+  // Docker: root-package.json is copied alongside the app at /app/root-package.json
+  const dockerPath = resolve(__dirname, '../../root-package.json');
+  // Local dev: root package.json is 3 levels up from backend/dist/routes/
+  const localPath = resolve(__dirname, '../../../package.json');
+  const path = existsSync(dockerPath) ? dockerPath : localPath;
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8')).version as string;
+  } catch {
+    return 'unknown';
+  }
+})();
 
 export const sseRouter = Router();
 
@@ -86,6 +102,7 @@ sseRouter.get('/', (req: Request, res: Response) => {
     route: buildRoutePayload(),
     stale: false,
     timestamp: new Date().toISOString(),
+    version: APP_VERSION,
   };
   res.write(`event: init\ndata: ${JSON.stringify(initPayload)}\n\n`);
 

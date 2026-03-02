@@ -15,6 +15,7 @@ export function useVehicles() {
   const [loading, setLoading] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
   const routeRef = useRef<VehiclesResponse['route'] | null>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -83,6 +84,14 @@ export function useVehicles() {
         setLoading(false);
         setConnectionStatus('connected');
         failTimesRef.current = [];
+
+        if (
+          payload.version &&
+          __APP_VERSION__ !== 'dev' &&
+          payload.version !== __APP_VERSION__
+        ) {
+          setUpdateAvailable(true);
+        }
       } catch {
         // ignore parse errors
       }
@@ -201,5 +210,5 @@ export function useVehicles() {
     });
   }, []);
 
-  return { data, error, loading, lastUpdateTime, connectionStatus, setCheckinCounts };
+  return { data, error, loading, lastUpdateTime, connectionStatus, setCheckinCounts, updateAvailable };
 }

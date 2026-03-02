@@ -89,7 +89,7 @@ const STOP_TPC_MAP: Record<string, string> = {
 };
 
 function App() {
-  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus, setCheckinCounts } = useVehicles();
+  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus, setCheckinCounts, updateAvailable } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
   const { checkin, loading: checkinLoading, doCheckin, doCheckout, isCheckedInto } = useCheckin();
@@ -189,6 +189,11 @@ function App() {
             onCheckin={handleCheckin}
             onCheckout={handleCheckout}
           />
+          {updateAvailable && (
+            <button className="update-banner" onClick={() => window.location.reload()}>
+              Nieuwe versie beschikbaar — tik om te verversen
+            </button>
+          )}
           {vehiclesData && (
             <UpdatePill lastUpdate={lastUpdateTime} connectionStatus={connectionStatus} />
           )}

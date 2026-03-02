@@ -1,0 +1,9 @@
+.git
+node_modules
+backend/node_modules
+backend/dist
+frontend
+*.md
+*.png
+*.jpeg
+*.jpg

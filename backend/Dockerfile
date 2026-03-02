@@ -1,21 +1,24 @@
 FROM node:22-alpine AS builder
 
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY backend/package.json backend/package-lock.json* ./
 RUN npm install
-COPY tsconfig.json ./
-COPY src ./src
+COPY backend/tsconfig.json ./
+COPY backend/src ./src
 RUN npm run build
 
 FROM node:22-alpine
 RUN apk add --no-cache unzip
 
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY backend/package.json backend/package-lock.json* ./
 RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
-COPY src/data ./dist/data
-COPY src/proto ./dist/proto
+COPY backend/src/data ./dist/data
+COPY backend/src/proto ./dist/proto
+
+# Copy root package.json for runtime version reading
+COPY package.json ./root-package.json
 
 EXPOSE 3001
 CMD ["node", "dist/index.js"]

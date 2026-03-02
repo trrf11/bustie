@@ -371,6 +371,25 @@ body {
   }
 }
 
+/* Update banner — shown when a new version is deployed */
+.update-banner {
+  position: absolute;
+  bottom: calc(14dvh + 40px);
+  left: 12px;
+  right: 12px;
+  padding: 10px 16px;
+  background: var(--color-primary);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  z-index: 1000;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .update-pill {
   position: absolute;
   bottom: calc(14dvh + 8px);
@@ -1144,6 +1163,10 @@ body {
   /* Hide vaul drawer portal on desktop */
   [vaul-drawer] {
     display: none !important;
+  }
+
+  .update-banner {
+    bottom: 44px;
   }
 
   .update-pill {
