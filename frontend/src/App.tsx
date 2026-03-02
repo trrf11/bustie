@@ -89,7 +89,7 @@ const STOP_TPC_MAP: Record<string, string> = {
 };
 
 function App() {
-  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus } = useVehicles();
+  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus, setCheckinCounts } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
   const { checkin, loading: checkinLoading, doCheckin, doCheckout, isCheckedInto } = useCheckin();
@@ -103,9 +103,9 @@ function App() {
     const vehicle = vehiclesData.vehicles.find((v) => v.vehicleId === checkin.vehicleId);
     if (!vehicle) return;
     if (vehicle.tripId !== checkin.tripId) {
-      doCheckout();
+      doCheckout().then((counts) => { if (counts) setCheckinCounts(counts); });
     }
-  }, [checkin, vehiclesData, checkinLoading, doCheckout]);
+  }, [checkin, vehiclesData, checkinLoading, doCheckout, setCheckinCounts]);
 
   const handleSelectStop = useCallback((trip: SavedTrip) => {
     setDirectionFilter(trip.direction as DirectionFilterValue);
@@ -114,12 +114,14 @@ function App() {
   }, []);
 
   const handleCheckin = useCallback(async (vehicleId: string, tripId: string) => {
-    await doCheckin(vehicleId, tripId);
-  }, [doCheckin]);
+    const counts = await doCheckin(vehicleId, tripId);
+    if (counts) setCheckinCounts(counts);
+  }, [doCheckin, setCheckinCounts]);
 
   const handleCheckout = useCallback(async () => {
-    await doCheckout();
-  }, [doCheckout]);
+    const counts = await doCheckout();
+    if (counts) setCheckinCounts(counts);
+  }, [doCheckout, setCheckinCounts]);
 
   const handleSaveStop = useCallback((stop: StopInfo, direction: number) => {
     const tpc = STOP_TPC_MAP[`${direction}:${stop.name}`];

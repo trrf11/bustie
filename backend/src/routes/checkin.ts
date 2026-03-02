@@ -70,7 +70,7 @@ checkinRouter.post('/', (req: Request, res: Response) => {
   checkIn(clientId, vehicleId, tripId);
   vehicleEventBus.emit('checkins:updated');
 
-  res.json({ ok: true });
+  res.json({ ok: true, counts: getCheckinCounts() });
 });
 
 // DELETE /api/checkin — check out
@@ -96,7 +96,7 @@ checkinRouter.delete('/', (req: Request, res: Response) => {
   checkOut(clientId);
   vehicleEventBus.emit('checkins:updated');
 
-  res.json({ ok: true });
+  res.json({ ok: true, counts: getCheckinCounts() });
 });
 
 // GET /api/checkin?clientId=xxx — get current check-in status

@@ -6,6 +6,8 @@ interface CheckinState {
   tripId: string;
 }
 
+export type CheckinCounts = Record<string, number>;
+
 export function useCheckin() {
   const clientId = useClientId();
   const [checkin, setCheckin] = useState<CheckinState | null>(null);
@@ -26,7 +28,7 @@ export function useCheckin() {
   }, [clientId]);
 
   const doCheckin = useCallback(
-    async (vehicleId: string, tripId: string) => {
+    async (vehicleId: string, tripId: string): Promise<CheckinCounts | null> => {
       setLoading(true);
       try {
         const res = await fetch('/api/checkin', {
@@ -35,8 +37,11 @@ export function useCheckin() {
           body: JSON.stringify({ clientId, vehicleId, tripId }),
         });
         if (res.ok) {
+          const data = await res.json();
           setCheckin({ vehicleId, tripId });
+          return data.counts ?? null;
         }
+        return null;
       } finally {
         setLoading(false);
       }
@@ -44,7 +49,7 @@ export function useCheckin() {
     [clientId],
   );
 
-  const doCheckout = useCallback(async () => {
+  const doCheckout = useCallback(async (): Promise<CheckinCounts | null> => {
     setLoading(true);
     try {
       const res = await fetch('/api/checkin', {
@@ -53,8 +58,11 @@ export function useCheckin() {
         body: JSON.stringify({ clientId }),
       });
       if (res.ok) {
+        const data = await res.json();
         setCheckin(null);
+        return data.counts ?? null;
       }
+      return null;
     } finally {
       setLoading(false);
     }
