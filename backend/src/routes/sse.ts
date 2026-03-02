@@ -5,7 +5,7 @@ import { vehicleEventBus } from '../events';
 
 export const sseRouter = Router();
 
-const MAX_CONNECTIONS_PER_IP = 3;
+const MAX_CONNECTIONS_PER_IP = 5;
 const MAX_TOTAL_CONNECTIONS = 100;
 
 const connectionsPerIp = new Map<string, number>();
