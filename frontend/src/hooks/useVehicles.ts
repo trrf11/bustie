@@ -159,13 +159,15 @@ export function useVehicles() {
 
     connectSSE();
 
-    // Mobile recovery: reopen SSE when page becomes visible after sleeping
+    // Mobile recovery: refresh data when page becomes visible after sleeping
     function onVisibilityChange() {
       if (document.visibilityState !== 'visible') return;
 
       const timeSinceUpdate = Date.now() - (lastUpdateTime || 0);
-      if (timeSinceUpdate > STALE_THRESHOLD && esRef.current) {
-        // Connection likely died while phone was sleeping — reconnect
+      if (timeSinceUpdate > STALE_THRESHOLD) {
+        // Fetch REST immediately so stale data is replaced right away
+        fetchVehicles();
+        // Reconnect SSE for ongoing live updates
         connectSSE();
       }
     }
