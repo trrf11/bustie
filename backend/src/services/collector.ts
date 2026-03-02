@@ -2,7 +2,7 @@ import { config } from '../config';
 import { fetchVehiclePositions } from './gtfs-rt';
 import { fetchTripUpdates } from './gtfs-rt';
 import { getDirectionForTrip } from './gtfs-static';
-import { replaceVehicles, replaceStopTimes, logPoll, DbVehicle, DbStopTime } from '../db';
+import { replaceVehicles, replaceStopTimes, logPoll, purgeCheckinsWithMismatchedTrips, DbVehicle, DbStopTime } from '../db';
 import { checkGtfsFeedChanged, refreshGtfsData } from './gtfs-extract';
 import { vehicleEventBus } from '../events';
 
@@ -46,6 +46,13 @@ async function pollAndStoreVehicles(): Promise<void> {
     });
 
     replaceVehicles(vehicles);
+
+    // Purge check-ins whose trip no longer matches the vehicle's current trip
+    const purged = purgeCheckinsWithMismatchedTrips();
+    if (purged > 0) {
+      console.log(`Purged ${purged} check-in(s) due to trip rotation`);
+      vehicleEventBus.emit('checkins:updated');
+    }
 
     // Only push SSE when positions actually changed
     const fingerprint = vehicles

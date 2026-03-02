@@ -286,6 +286,18 @@ export function getClientCheckin(clientId: string): { vehicleId: string; tripId:
   return { vehicleId: row.vehicle_id, tripId: row.trip_id };
 }
 
+export function purgeCheckinsWithMismatchedTrips(): number {
+  const result = db.prepare(`
+    DELETE FROM checkins
+    WHERE EXISTS (
+      SELECT 1 FROM vehicles v
+      WHERE v.vehicle_id = checkins.vehicle_id
+        AND v.trip_id != checkins.trip_id
+    )
+  `).run();
+  return result.changes;
+}
+
 export function purgeStaleCheckins(): void {
   const result = db.prepare(
     "DELETE FROM checkins WHERE checked_in_at < datetime('now', '-2 hours')"

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BusMap, type BusMapHandle } from './components/BusMap';
 import { DirectionFilter, type DirectionFilterValue } from './components/DirectionFilter';
 import { SavedTrips } from './components/SavedTrips';
@@ -89,13 +89,23 @@ const STOP_TPC_MAP: Record<string, string> = {
 };
 
 function App() {
-  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus, updateCheckinCount } = useVehicles();
+  const { data: vehiclesData, error: vehiclesError, loading: vehiclesLoading, lastUpdateTime, connectionStatus } = useVehicles();
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
   const { checkin, loading: checkinLoading, doCheckin, doCheckout, isCheckedInto } = useCheckin();
   const [showMenu, setShowMenu] = useState(false);
   const bottomSheetRef = useRef<BottomSheetHandle>(null);
   const busMapRef = useRef<BusMapHandle>(null);
+
+  // Auto-checkout when the vehicle's trip rotates (bus started a new run)
+  useEffect(() => {
+    if (!checkin || !vehiclesData || checkinLoading) return;
+    const vehicle = vehiclesData.vehicles.find((v) => v.vehicleId === checkin.vehicleId);
+    if (!vehicle) return;
+    if (vehicle.tripId !== checkin.tripId) {
+      doCheckout();
+    }
+  }, [checkin, vehiclesData, checkinLoading, doCheckout]);
 
   const handleSelectStop = useCallback((trip: SavedTrip) => {
     setDirectionFilter(trip.direction as DirectionFilterValue);
@@ -104,16 +114,12 @@ function App() {
   }, []);
 
   const handleCheckin = useCallback(async (vehicleId: string, tripId: string) => {
-    updateCheckinCount(vehicleId, 1);
     await doCheckin(vehicleId, tripId);
-  }, [doCheckin, updateCheckinCount]);
+  }, [doCheckin]);
 
   const handleCheckout = useCallback(async () => {
-    if (checkin) {
-      updateCheckinCount(checkin.vehicleId, -1);
-    }
     await doCheckout();
-  }, [doCheckout, checkin, updateCheckinCount]);
+  }, [doCheckout]);
 
   const handleSaveStop = useCallback((stop: StopInfo, direction: number) => {
     const tpc = STOP_TPC_MAP[`${direction}:${stop.name}`];
