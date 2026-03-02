@@ -66,7 +66,7 @@ sseRouter.get('/', (req: Request, res: Response) => {
   totalConnections++;
 
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-store, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
@@ -74,6 +74,11 @@ sseRouter.get('/', (req: Request, res: Response) => {
   // Disable Nagle's algorithm so small SSE writes (like checkin counts)
   // are pushed to the client immediately instead of being buffered.
   req.socket.setNoDelay(true);
+
+  // Flush proxy buffers: reverse proxies (Nginx Proxy Manager, Cloudflare)
+  // often buffer the first 4-8 KB before flushing. Sending 2 KB of SSE
+  // comment padding forces the buffer to fill and flush promptly.
+  res.write(`:${' '.repeat(2048)}\n`);
 
   // Send initial payload with vehicles + route data
   const initPayload = {
