@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import type { DeparturesResponse, SavedTrip } from '../types';
 
 interface StopPopupProps {
@@ -42,6 +42,9 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: Stop
   }[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0);
+  const [selectedDepIndex, setSelectedDepIndex] = useState(0);
+  const calloutRef = useRef<HTMLDivElement>(null);
+  const timeItemRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   const isSaved = savedTrips.some((t) => t.tpc === tpc && t.direction === direction);
   const savedTrip = savedTrips.find((t) => t.tpc === tpc && t.direction === direction);
@@ -104,8 +107,29 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: Stop
     return () => clearInterval(interval);
   }, []);
 
+  // Reset selection when departures refresh
+  useEffect(() => {
+    setSelectedDepIndex(0);
+  }, [upcomingDeps]);
+
+  // Position the chevron under the selected time item
+  const setTimeItemRef = useCallback((index: number) => (el: HTMLSpanElement | null) => {
+    timeItemRefs.current[index] = el;
+  }, []);
+
+  useLayoutEffect(() => {
+    const callout = calloutRef.current;
+    const item = timeItemRefs.current[selectedDepIndex];
+    if (!callout || !item) return;
+    const calloutRect = callout.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const center = itemRect.left + itemRect.width / 2 - calloutRect.left;
+    callout.style.setProperty('--chevron-left', `${center}px`);
+  }, [selectedDepIndex, upcomingDeps]);
+
   const directionLabel = direction === 1 ? 'Richting Amsterdam' : 'Richting Zandvoort';
   const firstDep = upcomingDeps[0] ?? null;
+  const selectedDep = upcomingDeps[selectedDepIndex] ?? firstDep;
 
   return (
     <div className="stop-popup">
@@ -129,20 +153,25 @@ export function StopPopup({ stopName, tpc, direction, savedTrips, onSave }: Stop
         <>
           <div className="stop-popup-times">
             {upcomingDeps.map((dep, i) => (
-              <span key={i} className={`stop-popup-time-item${dep.delayed ? ' stop-popup-time-delayed' : ''}`}>
+              <span
+                key={i}
+                ref={setTimeItemRef(i)}
+                className={`stop-popup-time-item${dep.delayed ? ' stop-popup-time-delayed' : ''}${walkTime > 0 ? ' stop-popup-time-selectable' : ''}${walkTime > 0 && i === selectedDepIndex ? ' stop-popup-time-selected' : ''}`}
+                onClick={walkTime > 0 ? () => setSelectedDepIndex(i) : undefined}
+              >
                 {dep.delayed && <span className="time-scheduled">{scheduledTime(dep.expected, dep.delayMin)}</span>}
                 <span className={dep.delayed ? 'time-actual' : ''}>{formatTime(dep.expected)}</span>
               </span>
             ))}
           </div>
 
-          {firstDep.leaveBy ? (
-            <>
-              <div className="stop-popup-divider" />
+          {selectedDep?.leaveBy ? (
+            <div className="stop-popup-callout" ref={calloutRef}>
+              <div className="stop-popup-callout-chevron" />
               <span className="stop-popup-leaveby">
-                🚶 Vertrek om {formatTime(firstDep.leaveBy)}
+                🚶 Vertrek om {formatTime(selectedDep.leaveBy)}
               </span>
-            </>
+            </div>
           ) : null}
         </>
       ) : (

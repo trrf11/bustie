@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import type { SavedTrip, DeparturesResponse } from '../types';
 
 interface SavedTripsProps {
@@ -55,6 +55,9 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
   const [showWalkTimePicker, setShowWalkTimePicker] = useState(false);
   const [customWalkTime, setCustomWalkTime] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [selectedDepIndex, setSelectedDepIndex] = useState(0);
+  const calloutRef = useRef<HTMLDivElement>(null);
+  const timeItemRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +115,26 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
     return () => clearInterval(interval);
   }, []);
 
+  // Reset selection when departures refresh
+  useEffect(() => {
+    setSelectedDepIndex(0);
+  }, [upcomingDeps]);
+
+  // Position the chevron under the selected time item
+  const setTimeItemRef = useCallback((index: number) => (el: HTMLSpanElement | null) => {
+    timeItemRefs.current[index] = el;
+  }, []);
+
+  useLayoutEffect(() => {
+    const callout = calloutRef.current;
+    const item = timeItemRefs.current[selectedDepIndex];
+    if (!callout || !item) return;
+    const calloutRect = callout.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const center = itemRect.left + itemRect.width / 2 - calloutRect.left;
+    callout.style.setProperty('--chevron-left', `${center}px`);
+  }, [selectedDepIndex, upcomingDeps]);
+
   function handlePresetSelect(minutes: number) {
     onUpdateWalkTime(minutes);
     setShowWalkTimePicker(false);
@@ -130,6 +153,8 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
   }
 
   const firstDep = upcomingDeps[0] ?? null;
+  const selectedDep = upcomingDeps[selectedDepIndex] ?? firstDep;
+  const walkTime = trip.walkTimeMinutes;
 
   return (
     <div className="saved-trip-card" data-index={index} onClick={onSelect} style={{ cursor: onSelect ? 'pointer' : undefined }}>
@@ -182,18 +207,23 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
             <>
               <div className="saved-trip-times">
                 {upcomingDeps.map((dep, i) => (
-                  <span key={i} className={`saved-trip-time-item${dep.delayed ? ' saved-trip-time-delayed' : ''}`}>
+                  <span
+                    key={i}
+                    ref={setTimeItemRef(i)}
+                    className={`saved-trip-time-item${dep.delayed ? ' saved-trip-time-delayed' : ''}${walkTime > 0 ? ' saved-trip-time-selectable' : ''}${walkTime > 0 && i === selectedDepIndex ? ' saved-trip-time-selected' : ''}`}
+                    onClick={walkTime > 0 ? (e) => { e.stopPropagation(); setSelectedDepIndex(i); } : undefined}
+                  >
                     {dep.delayed && <span className="time-scheduled">{scheduledTime(dep.expected, dep.delayMin)}</span>}
                     <span className={dep.delayed ? 'time-actual' : ''}>{formatTime(dep.expected)}</span>
                   </span>
                 ))}
               </div>
-              {firstDep.leaveBy ? (
-                <>
-                  <div className="saved-trip-divider" />
+              {selectedDep?.leaveBy ? (
+                <div className="saved-trip-callout" ref={calloutRef}>
+                  <div className="saved-trip-callout-chevron" />
                   <div className="saved-trip-leaveby-row">
                     <span className="saved-trip-leaveby">
-                      🚶 Vertrek om {formatTime(firstDep.leaveBy)}
+                      🚶 Vertrek om {formatTime(selectedDep.leaveBy)}
                     </span>
                     <button
                       className="saved-trip-walktime"
@@ -206,7 +236,7 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
                       {`Looptijd: ${trip.walkTimeMinutes} min`}
                     </button>
                   </div>
-                </>
+                </div>
               ) : null}
             </>
           ) : (

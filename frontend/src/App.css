@@ -602,6 +602,45 @@ body {
   font-weight: 700;
 }
 
+/* Selectable time items — popup */
+.stop-popup-time-selectable {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stop-popup-time-selected {
+  color: var(--color-accent);
+}
+
+.stop-popup-time-selected .time-actual {
+  color: var(--color-accent);
+}
+
+/* Callout box — popup */
+.stop-popup-callout {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 6px;
+}
+
+.stop-popup-callout-chevron {
+  position: absolute;
+  top: -5px;
+  left: var(--chevron-left, 50%);
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: color-mix(in srgb, var(--color-surface), white 3%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 /* Save/remove action button — popup */
 .stop-popup-action {
   display: block;
@@ -825,6 +864,7 @@ body {
   border-radius: var(--radius);
   padding: 12px;
   transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .saved-trip-card:hover {
@@ -1005,9 +1045,51 @@ body {
   font-weight: 700;
 }
 
+/* Selectable time items — saved trip */
+.saved-trip-time-selectable {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.saved-trip-time-selected {
+  color: var(--color-accent);
+}
+
+.saved-trip-time-selected .time-actual {
+  color: var(--color-accent);
+}
+
+/* Callout box — saved trip */
+.saved-trip-callout {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.saved-trip-callout-chevron {
+  position: absolute;
+  top: -5px;
+  left: var(--chevron-left, 50%);
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: color-mix(in srgb, var(--color-bg), white 3%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saved-trip-card:hover .saved-trip-callout-chevron {
+  background: color-mix(in srgb, var(--color-surface-hover), white 3%);
+}
+
 /* Walk time button */
 .saved-trip-walktime {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--color-border);
   color: var(--color-text-muted);
   font-size: 0.7rem;
