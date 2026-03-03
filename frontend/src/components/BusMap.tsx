@@ -106,7 +106,7 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
  * transitions on the marker wrapper (which break during zoom because
  * Leaflet uses the same CSS transform for repositioning).
  */
-const EASE_DURATION = 15_000; // ms
+const EASE_DURATION = 3_000; // ms
 
 function AnimatedBusMarker({
   vehicle,
