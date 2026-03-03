@@ -9,9 +9,6 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 DEPLOY_DIR="/root/bus80"
 LOG_FILE="/var/log/bus80-deploy.log"
 
-# Capture all stderr in the log so cron failures aren't silent
-exec 2>> "$LOG_FILE"
-
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
