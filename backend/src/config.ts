@@ -32,3 +32,9 @@ export const config = {
   // User-Agent for API requests
   userAgent: 'Bus80Tracker/1.0 (community project)',
 } as const;
+
+export const pushConfig = {
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
+  vapidSubject: process.env.VAPID_SUBJECT || '',
+};

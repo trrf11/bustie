@@ -2,84 +2,79 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 
-// Mock dependencies
-vi.mock('../services/polling', () => ({
-  getCachedDepartures: vi.fn(),
-}));
-vi.mock('../services/ovapi', () => ({
-  fetchDepartures: vi.fn(),
-}));
 vi.mock('../db', () => ({
-  getArrivalsForStopFromDb: vi.fn().mockReturnValue([]),
+  getAllCachedDeparturesForTpc: vi.fn(),
+  getCachedStop: vi.fn(),
 }));
-vi.mock('../services/stop-mapping', () => ({
-  lookupStopId: vi.fn().mockReturnValue(null),
+vi.mock('../services/polling', () => ({
+  fetchAndCacheDepartures: vi.fn(),
 }));
 
-import { getCachedDepartures } from '../services/polling';
-import { fetchDepartures } from '../services/ovapi';
+import { getAllCachedDeparturesForTpc, getCachedStop } from '../db';
+import { fetchAndCacheDepartures } from '../services/polling';
 
 const app = createApp();
 
-const baseDeparture = {
-  journeyNumber: 101,
-  scheduledDeparture: '2026-02-10T14:00:00',
-  expectedDeparture: '2026-02-10T14:05:00',
-  delayMinutes: 5,
-  status: 'DRIVING',
-  isDelayed: true,
+const cachedDep1 = {
+  tpc: '55230110',
+  direction: 1,
+  journey_number: 101,
+  scheduled_departure: '2026-02-10T14:00:00',
+  expected_departure: '2026-02-10T14:05:00',
+  delay_minutes: 5,
   destination: 'Amsterdam Elandsgracht',
-  lineDirection: 1,
+  status: 'DRIVING',
 };
 
-const mockDepartureResult = {
-  stop: { name: 'Halfweg, Station Halfweg-Zwanenburg', tpc: '55230110', latitude: 52.37, longitude: 4.72 },
-  departures: [
-    baseDeparture,
-    { ...baseDeparture, journeyNumber: 102, lineDirection: 2, destination: 'Zandvoort Centrum' },
-  ],
-  timestamp: '2026-02-10T14:00:00.000Z',
+const cachedDep2 = {
+  ...cachedDep1,
+  direction: 2,
+  journey_number: 102,
+  destination: 'Zandvoort Centrum',
+};
+
+const cachedStop = {
+  tpc: '55230110',
+  stop_name: 'Halfweg, Station Halfweg-Zwanenburg',
+  latitude: 52.37,
+  longitude: 4.72,
+  updated_at: new Date().toISOString(),
 };
 
 beforeEach(() => {
-  vi.mocked(getCachedDepartures).mockReset();
-  vi.mocked(fetchDepartures).mockReset();
+  vi.mocked(getAllCachedDeparturesForTpc).mockReset();
+  vi.mocked(getCachedStop).mockReset();
+  vi.mocked(fetchAndCacheDepartures).mockReset();
 });
 
 describe('GET /api/departures', () => {
-  it('uses cached data when available', async () => {
-    vi.mocked(getCachedDepartures).mockReturnValue({
-      data: mockDepartureResult,
-      timestamp: mockDepartureResult.timestamp,
-      stale: false,
-    });
+  it('returns cached departures filtered by direction', async () => {
+    vi.mocked(getCachedStop).mockReturnValue(cachedStop);
+    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([cachedDep1, cachedDep2]);
 
     const res = await request(app).get('/api/departures?tpc=55230110&direction=1');
 
     expect(res.status).toBe(200);
-    expect(res.body.departures).toHaveLength(1); // only direction 1
+    expect(res.body.departures).toHaveLength(1);
     expect(res.body.departures[0].journeyNumber).toBe(101);
     expect(res.body.stale).toBe(false);
-    expect(fetchDepartures).not.toHaveBeenCalled();
+    expect(fetchAndCacheDepartures).not.toHaveBeenCalled();
   });
 
-  it('falls back to fetch when no cache exists', async () => {
-    vi.mocked(getCachedDepartures).mockReturnValue(null);
-    vi.mocked(fetchDepartures).mockResolvedValue(mockDepartureResult);
+  it('fetches on-demand when no cache exists', async () => {
+    vi.mocked(getCachedStop).mockReturnValueOnce(null).mockReturnValueOnce(cachedStop);
+    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([cachedDep1]);
+    vi.mocked(fetchAndCacheDepartures).mockResolvedValue();
 
     const res = await request(app).get('/api/departures?tpc=55230110&direction=1');
 
     expect(res.status).toBe(200);
-    expect(fetchDepartures).toHaveBeenCalledWith('55230110');
-    expect(res.body.stale).toBe(false);
+    expect(fetchAndCacheDepartures).toHaveBeenCalledWith('55230110');
   });
 
   it('filters departures by direction', async () => {
-    vi.mocked(getCachedDepartures).mockReturnValue({
-      data: mockDepartureResult,
-      timestamp: mockDepartureResult.timestamp,
-      stale: false,
-    });
+    vi.mocked(getCachedStop).mockReturnValue(cachedStop);
+    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([cachedDep1, cachedDep2]);
 
     const res1 = await request(app).get('/api/departures?direction=1');
     expect(res1.body.departures).toHaveLength(1);
@@ -91,48 +86,37 @@ describe('GET /api/departures', () => {
   });
 
   it('calculates leaveBy when walkTime is provided', async () => {
-    vi.mocked(getCachedDepartures).mockReturnValue({
-      data: mockDepartureResult,
-      timestamp: mockDepartureResult.timestamp,
-      stale: false,
-    });
+    vi.mocked(getCachedStop).mockReturnValue(cachedStop);
+    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([cachedDep1]);
 
     const res = await request(app).get('/api/departures?direction=1&walkTime=10');
 
     expect(res.status).toBe(200);
     expect(res.body.walkTimeMinutes).toBe(10);
     expect(res.body.departures[0].leaveBy).toBeTruthy();
-    // leaveBy should be 10 minutes before expectedDeparture
-    expect(res.body.departures[0].leaveBy).not.toContain('Z'); // No UTC suffix
+    expect(res.body.departures[0].leaveBy).not.toContain('Z');
   });
 
   it('sets leaveBy to null when walkTime is 0', async () => {
-    vi.mocked(getCachedDepartures).mockReturnValue({
-      data: mockDepartureResult,
-      timestamp: mockDepartureResult.timestamp,
-      stale: false,
-    });
+    vi.mocked(getCachedStop).mockReturnValue(cachedStop);
+    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([cachedDep1]);
 
     const res = await request(app).get('/api/departures?direction=1&walkTime=0');
-
     expect(res.body.departures[0].leaveBy).toBeNull();
   });
 
-  it('returns stale flag from cache', async () => {
-    vi.mocked(getCachedDepartures).mockReturnValue({
-      data: mockDepartureResult,
-      timestamp: mockDepartureResult.timestamp,
-      stale: true,
-    });
+  it('marks data as stale when older than 2 minutes', async () => {
+    const staleStop = { ...cachedStop, updated_at: new Date(Date.now() - 3 * 60_000).toISOString() };
+    vi.mocked(getCachedStop).mockReturnValue(staleStop);
+    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([cachedDep1]);
 
     const res = await request(app).get('/api/departures?direction=1');
-
     expect(res.body.stale).toBe(true);
   });
 
   it('returns 500 on fetch error', async () => {
-    vi.mocked(getCachedDepartures).mockReturnValue(null);
-    vi.mocked(fetchDepartures).mockRejectedValue(new Error('OVapi error'));
+    vi.mocked(getCachedStop).mockReturnValue(null);
+    vi.mocked(fetchAndCacheDepartures).mockRejectedValue(new Error('OVapi error'));
 
     const res = await request(app).get('/api/departures?direction=1');
 
@@ -141,16 +125,12 @@ describe('GET /api/departures', () => {
   });
 
   it('uses default tpc and direction when not specified', async () => {
-    vi.mocked(getCachedDepartures).mockReturnValue({
-      data: mockDepartureResult,
-      timestamp: mockDepartureResult.timestamp,
-      stale: false,
-    });
+    vi.mocked(getCachedStop).mockReturnValue(cachedStop);
+    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([cachedDep1]);
 
     const res = await request(app).get('/api/departures');
 
     expect(res.status).toBe(200);
-    // Default direction is 1 from config
     expect(res.body.direction).toBe(1);
   });
 });

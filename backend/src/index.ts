@@ -4,6 +4,9 @@ import { loadRouteData, getRouteData } from './services/gtfs-static';
 import { refreshGtfsData } from './services/gtfs-extract';
 import { startCollector } from './services/collector';
 import { startDeparturePolling } from './services/polling';
+import { initPush, isPushEnabled } from './services/push';
+import { startAlertScheduler } from './services/alert-scheduler';
+import { purgeStaleSentNotifications } from './db';
 import { createApp } from './app';
 
 async function main() {
@@ -22,6 +25,15 @@ async function main() {
       console.warn('Initial GTFS extract failed:', (err as Error).message);
       console.warn('The backend will operate without route data until the next refresh attempt.');
     }
+  }
+
+  // Initialize Web Push (optional — disabled if VAPID keys not set)
+  initPush();
+
+  // Start alert scheduler (only if push is enabled)
+  if (isPushEnabled()) {
+    purgeStaleSentNotifications();
+    startAlertScheduler();
   }
 
   // Start data collector (vehicles + trip updates → SQLite)

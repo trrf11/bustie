@@ -1,6 +1,6 @@
 {
   "name": "bus80",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Real-time Bus 80 tracker (Zandvoort - Amsterdam)",
   "scripts": {

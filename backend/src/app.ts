@@ -5,6 +5,8 @@ import { vehiclesRouter } from './routes/vehicles';
 import { sseRouter } from './routes/sse';
 import { statsRouter } from './routes/stats';
 import { checkinRouter } from './routes/checkin';
+import { pushRouter } from './routes/push';
+import { alertsRouter } from './routes/alerts';
 
 /**
  * Create and configure the Express app.
@@ -24,6 +26,8 @@ export function createApp() {
   app.use('/api/vehicles', vehiclesRouter);
   app.use('/api/stats', statsRouter);
   app.use('/api/checkin', checkinRouter);
+  app.use('/api/push', pushRouter);
+  app.use('/api/alerts', alertsRouter);
 
   // Health check
   app.get('/api/health', (_req, res) => {

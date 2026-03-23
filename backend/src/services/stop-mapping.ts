@@ -1,10 +1,12 @@
 import { getRouteData } from './gtfs-static';
+import { getDb } from '../db';
 
 /**
- * Maps OVapi TimingPointCodes (TPC) to GTFS stopIds using stop names as the bridge.
+ * Maps OVapi TimingPointCodes (TPC) to GTFS-RT stopIds.
  *
  * The frontend sends TPC codes, but GTFS-RT trip updates reference GTFS stopIds.
- * Both systems share the same stop names, so we can build a mapping via route.json.
+ * route.json provides stop names + sequences, and stop_times has GTFS-RT stop_ids + sequences.
+ * We bridge via matching direction + stop_sequence to get the GTFS-RT stop_id for each named stop.
  */
 
 // TPC → stop name per direction (mirrors frontend STOP_TPC_MAP but inverted: tpc → name)
@@ -79,7 +81,7 @@ const TPC_TO_NAME: Record<string, { name: string; direction: number }> = {
   '55210100': { name: 'Zandvoort, Koninginneweg', direction: 2 },
 };
 
-// Lazily built lookup: "direction:stopName" → GTFS stopId
+// Lazily built lookup: "direction:stopName" → GTFS-RT stopId
 let stopIdCache: Map<string, string> | null = null;
 
 function buildStopIdCache(): Map<string, string> {
@@ -90,11 +92,41 @@ function buildStopIdCache(): Map<string, string> {
   const stops = routeData.stops?.route;
   if (!stops) return cache;
 
+  // Build sequence→name maps from route.json
+  const seqToName1 = new Map<number, string>();
   for (const stop of stops.direction1 || []) {
-    cache.set(`1:${stop.name}`, stop.stopId);
+    seqToName1.set(stop.sequence, stop.name);
   }
+  const seqToName2 = new Map<number, string>();
   for (const stop of stops.direction2 || []) {
-    cache.set(`2:${stop.name}`, stop.stopId);
+    seqToName2.set(stop.sequence, stop.name);
+  }
+
+  // Get GTFS-RT stop_ids from stop_times table, mapped by direction + sequence
+  try {
+    const db = getDb();
+    const rows = db.prepare(
+      'SELECT DISTINCT stop_id, stop_sequence, direction FROM stop_times WHERE direction IS NOT NULL'
+    ).all() as Array<{ stop_id: string; stop_sequence: number; direction: number }>;
+
+    for (const row of rows) {
+      const dir = row.direction;
+      const seqMap = dir === 1 ? seqToName1 : dir === 2 ? seqToName2 : null;
+      if (!seqMap) continue;
+
+      const name = seqMap.get(row.stop_sequence);
+      if (name) {
+        cache.set(`${dir}:${name}`, row.stop_id);
+      }
+    }
+  } catch {
+    // DB not initialized yet — fall back to route.json IDs
+    for (const stop of stops.direction1 || []) {
+      cache.set(`1:${stop.name}`, stop.stopId);
+    }
+    for (const stop of stops.direction2 || []) {
+      cache.set(`2:${stop.name}`, stop.stopId);
+    }
   }
 
   return cache;
