@@ -109,7 +109,7 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
  */
 const EASE_DURATION = 3_000; // ms
 
-const MAX_PROJECTION = 400; // meters — must match backend cap
+const MAX_PROJECTION = 500; // meters — must match backend cap
 
 function AnimatedBusMarker({
   vehicle,

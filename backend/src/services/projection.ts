@@ -1,7 +1,7 @@
 import { DbVehicle } from '../db';
 import { walkAlongPolyline } from '../utils/geo';
 
-const MAX_PROJECTION = 400; // meters
+const MAX_PROJECTION = 500; // meters
 
 export interface ProjectedVehicle {
   latitude: number;
