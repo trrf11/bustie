@@ -276,8 +276,8 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
             <span className="saved-trip-none">Geen vertrek</span>
           )}
 
-          {/* Walk time button — centered, only when no walk time set */}
-          {!firstDep?.leaveBy && (
+          {/* Walk time button — shown when the callout isn't visible (no departures or no leaveBy) */}
+          {!selectedDep?.leaveBy && (
             <>
             <div className="saved-trip-divider" />
             <button
@@ -288,7 +288,7 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
                 setShowCustomInput(false);
               }}
             >
-              Looptijd toevoegen
+              {walkTime > 0 ? `Looptijd: ${walkTime} min` : 'Looptijd toevoegen'}
             </button>
             </>
           )}
