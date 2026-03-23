@@ -214,7 +214,18 @@ function App() {
             onCheckout={handleCheckout}
           />
           {updateAvailable && (
-            <button className="update-banner" onClick={() => window.location.reload()}>
+            <button className="update-banner" onClick={async () => {
+              if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (reg?.waiting) {
+                  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                } else if (reg) {
+                  await reg.update();
+                  if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+              }
+              window.location.reload();
+            }}>
               Nieuwe versie beschikbaar — tik om te verversen
             </button>
           )}
