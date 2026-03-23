@@ -10,10 +10,18 @@ vi.mock('../db', () => ({
 vi.mock('../services/gtfs-static', () => ({
   getRouteData: vi.fn(),
   getPrimaryShapes: vi.fn(),
+  getShapeAndCumDistForTrip: vi.fn(),
+}));
+vi.mock('../services/projection', () => ({
+  projectVehicle: vi.fn((v: any) => ({
+    latitude: v.latitude,
+    longitude: v.longitude,
+    distanceAlongRoute: v.distance_along_route,
+  })),
 }));
 
 import { getVehiclesFromDb, getCheckinCounts } from '../db';
-import { getRouteData, getPrimaryShapes } from '../services/gtfs-static';
+import { getRouteData, getPrimaryShapes, getShapeAndCumDistForTrip } from '../services/gtfs-static';
 
 const app = createApp();
 
@@ -25,6 +33,10 @@ const mockDbVehicle = {
   longitude: 4.65,
   delay_seconds: 120,
   updated_at: '2026-02-10T14:00:00.000Z',
+  speed: 0,
+  distance_along_route: 0,
+  current_status: 'IN_TRANSIT_TO',
+  stop_id: 's1',
 };
 
 const mockShapes = {
@@ -46,11 +58,13 @@ beforeEach(() => {
   vi.mocked(getCheckinCounts).mockReset();
   vi.mocked(getRouteData).mockReset();
   vi.mocked(getPrimaryShapes).mockReset();
+  vi.mocked(getShapeAndCumDistForTrip).mockReset();
 
   vi.mocked(getVehiclesFromDb).mockReturnValue([mockDbVehicle]);
   vi.mocked(getCheckinCounts).mockReturnValue({});
   vi.mocked(getRouteData).mockReturnValue(mockRouteData as any);
   vi.mocked(getPrimaryShapes).mockReturnValue(mockShapes);
+  vi.mocked(getShapeAndCumDistForTrip).mockReturnValue(null);
 });
 
 describe('GET /api/vehicles', () => {

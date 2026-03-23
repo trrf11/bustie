@@ -57,9 +57,21 @@ export function initDb(customPath?: string): void {
       latitude REAL NOT NULL,
       longitude REAL NOT NULL,
       delay_seconds INTEGER NOT NULL DEFAULT 0,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      speed REAL NOT NULL DEFAULT 0,
+      distance_along_route REAL NOT NULL DEFAULT 0,
+      current_status TEXT NOT NULL DEFAULT '',
+      stop_id TEXT NOT NULL DEFAULT ''
     )
   `);
+
+  // Migrate existing vehicles table: add projection columns if missing
+  const cols = db.prepare("PRAGMA table_info(vehicles)").all() as Array<{ name: string }>;
+  const colNames = new Set(cols.map((c) => c.name));
+  if (!colNames.has('speed')) db.exec("ALTER TABLE vehicles ADD COLUMN speed REAL NOT NULL DEFAULT 0");
+  if (!colNames.has('distance_along_route')) db.exec("ALTER TABLE vehicles ADD COLUMN distance_along_route REAL NOT NULL DEFAULT 0");
+  if (!colNames.has('current_status')) db.exec("ALTER TABLE vehicles ADD COLUMN current_status TEXT NOT NULL DEFAULT ''");
+  if (!colNames.has('stop_id')) db.exec("ALTER TABLE vehicles ADD COLUMN stop_id TEXT NOT NULL DEFAULT ''");
 
   // Create stop_times table (latest trip update snapshot)
   db.exec(`
@@ -121,6 +133,103 @@ export function initDb(customPath?: string): void {
     WHERE checked_in_at < datetime('now', '-2 hours')
   `);
 
+  // Create push subscriptions table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_push_sub_client
+    ON push_subscriptions(client_id)
+  `);
+
+  // Purge push subscriptions older than 90 days
+  db.exec(`
+    DELETE FROM push_subscriptions
+    WHERE created_at < datetime('now', '-90 days')
+  `);
+
+  // Create departure alerts table (one per client per stop+direction)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS departure_alerts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id TEXT NOT NULL,
+      tpc TEXT NOT NULL,
+      direction INTEGER NOT NULL,
+      stop_name TEXT NOT NULL,
+      walk_time_minutes INTEGER NOT NULL DEFAULT 0,
+      time_window_start TEXT NOT NULL,
+      time_window_end TEXT NOT NULL,
+      days_of_week TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(client_id, tpc, direction)
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_departure_alerts_client
+    ON departure_alerts(client_id)
+  `);
+
+  // Create sent_notifications dedup table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sent_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id TEXT NOT NULL,
+      trip_id TEXT NOT NULL,
+      stop_id TEXT NOT NULL,
+      sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(client_id, trip_id, stop_id)
+    )
+  `);
+
+  // Purge sent_notifications older than 24h
+  db.exec(`
+    DELETE FROM sent_notifications
+    WHERE sent_at < datetime('now', '-24 hours')
+  `);
+
+  // Purge orphaned alerts (no push subscription and older than 30 days)
+  db.exec(`
+    DELETE FROM departure_alerts
+    WHERE created_at < datetime('now', '-30 days')
+      AND client_id NOT IN (SELECT DISTINCT client_id FROM push_subscriptions)
+  `);
+
+  // Create cached departures table (OVapi departure data, updated by polling)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cached_departures (
+      tpc TEXT NOT NULL,
+      direction INTEGER NOT NULL,
+      journey_number INTEGER NOT NULL,
+      scheduled_departure TEXT NOT NULL,
+      expected_departure TEXT NOT NULL,
+      delay_minutes INTEGER NOT NULL DEFAULT 0,
+      destination TEXT NOT NULL,
+      status TEXT NOT NULL,
+      PRIMARY KEY (tpc, direction, journey_number, scheduled_departure)
+    )
+  `);
+
+  // Cache metadata: tracks when each TPC was last polled + stop info
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cached_stops (
+      tpc TEXT PRIMARY KEY,
+      stop_name TEXT,
+      latitude REAL,
+      longitude REAL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   console.log(`SQLite database initialized at ${dbPath} (WAL mode)`);
 }
 
@@ -134,17 +243,21 @@ export interface DbVehicle {
   longitude: number;
   delay_seconds: number;
   updated_at: string;
+  speed: number;
+  distance_along_route: number;
+  current_status: string;
+  stop_id: string;
 }
 
 export function replaceVehicles(vehicles: DbVehicle[]): void {
   const transaction = db.transaction(() => {
     db.exec('DELETE FROM vehicles');
     const stmt = db.prepare(`
-      INSERT INTO vehicles (vehicle_id, trip_id, direction, latitude, longitude, delay_seconds, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vehicles (vehicle_id, trip_id, direction, latitude, longitude, delay_seconds, updated_at, speed, distance_along_route, current_status, stop_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const v of vehicles) {
-      stmt.run(v.vehicle_id, v.trip_id, v.direction, v.latitude, v.longitude, v.delay_seconds, v.updated_at);
+      stmt.run(v.vehicle_id, v.trip_id, v.direction, v.latitude, v.longitude, v.delay_seconds, v.updated_at, v.speed, v.distance_along_route, v.current_status, v.stop_id);
     }
   });
   transaction();
@@ -306,6 +419,208 @@ export function purgeStaleCheckins(): void {
     console.log(`Purged ${result.changes} stale check-in(s)`);
   }
 }
+
+// --- Push subscriptions table ---
+
+export interface DbPushSubscription {
+  id: number;
+  client_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: string;
+}
+
+export function savePushSubscription(clientId: string, endpoint: string, p256dh: string, auth: string): void {
+  db.prepare(`
+    INSERT OR REPLACE INTO push_subscriptions (client_id, endpoint, p256dh, auth, created_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+  `).run(clientId, endpoint, p256dh, auth);
+}
+
+export function deletePushSubscription(clientId: string, endpoint: string): void {
+  db.prepare(
+    'DELETE FROM push_subscriptions WHERE client_id = ? AND endpoint = ?'
+  ).run(clientId, endpoint);
+}
+
+export function deletePushSubscriptionByEndpoint(endpoint: string): void {
+  db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint);
+}
+
+export function getPushSubscriptionsByClient(clientId: string): DbPushSubscription[] {
+  return db.prepare(
+    'SELECT * FROM push_subscriptions WHERE client_id = ?'
+  ).all(clientId) as DbPushSubscription[];
+}
+
+export function countPushSubscriptionsByClient(clientId: string): number {
+  const row = db.prepare(
+    'SELECT COUNT(*) as count FROM push_subscriptions WHERE client_id = ?'
+  ).get(clientId) as { count: number };
+  return row.count;
+}
+
+// --- Departure alerts table ---
+
+export interface DbDepartureAlert {
+  id: number;
+  client_id: string;
+  tpc: string;
+  direction: number;
+  stop_name: string;
+  walk_time_minutes: number;
+  time_window_start: string;
+  time_window_end: string;
+  days_of_week: string;
+  enabled: number;
+  created_at: string;
+}
+
+export function saveAlert(
+  clientId: string,
+  tpc: string,
+  direction: number,
+  stopName: string,
+  walkTimeMinutes: number,
+  timeWindowStart: string,
+  timeWindowEnd: string,
+  daysOfWeek: number[],
+  enabled: boolean
+): void {
+  db.prepare(`
+    INSERT OR REPLACE INTO departure_alerts
+    (client_id, tpc, direction, stop_name, walk_time_minutes, time_window_start, time_window_end, days_of_week, enabled, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(clientId, tpc, direction, stopName, walkTimeMinutes, timeWindowStart, timeWindowEnd, JSON.stringify(daysOfWeek), enabled ? 1 : 0);
+}
+
+export function deleteAlert(clientId: string, tpc: string, direction: number): void {
+  db.prepare(
+    'DELETE FROM departure_alerts WHERE client_id = ? AND tpc = ? AND direction = ?'
+  ).run(clientId, tpc, direction);
+}
+
+export function getAlertsByClient(clientId: string): DbDepartureAlert[] {
+  return db.prepare(
+    'SELECT * FROM departure_alerts WHERE client_id = ?'
+  ).all(clientId) as DbDepartureAlert[];
+}
+
+export function countAlertsByClient(clientId: string): number {
+  const row = db.prepare(
+    'SELECT COUNT(*) as count FROM departure_alerts WHERE client_id = ?'
+  ).get(clientId) as { count: number };
+  return row.count;
+}
+
+export function getAllEnabledAlerts(): DbDepartureAlert[] {
+  return db.prepare(
+    'SELECT * FROM departure_alerts WHERE enabled = 1'
+  ).all() as DbDepartureAlert[];
+}
+
+export function markNotificationSent(clientId: string, tripId: string, stopId: string): boolean {
+  try {
+    db.prepare(
+      'INSERT INTO sent_notifications (client_id, trip_id, stop_id) VALUES (?, ?, ?)'
+    ).run(clientId, tripId, stopId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function purgeStaleSentNotifications(): void {
+  const result = db.prepare(
+    "DELETE FROM sent_notifications WHERE sent_at < datetime('now', '-24 hours')"
+  ).run();
+  if (result.changes > 0) {
+    console.log(`Purged ${result.changes} stale sent notification(s)`);
+  }
+}
+
+export function purgeOrphanedAlerts(): void {
+  const result = db.prepare(`
+    DELETE FROM departure_alerts
+    WHERE created_at < datetime('now', '-30 days')
+      AND client_id NOT IN (SELECT DISTINCT client_id FROM push_subscriptions)
+  `).run();
+  if (result.changes > 0) {
+    console.log(`Purged ${result.changes} orphaned alert(s)`);
+  }
+}
+
+// --- Cached departures table ---
+
+export interface DbCachedDeparture {
+  tpc: string;
+  direction: number;
+  journey_number: number;
+  scheduled_departure: string;
+  expected_departure: string;
+  delay_minutes: number;
+  destination: string;
+  status: string;
+}
+
+export interface DbCachedStop {
+  tpc: string;
+  stop_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  updated_at: string;
+}
+
+export function replaceCachedDepartures(
+  tpc: string,
+  departures: DbCachedDeparture[],
+  stopInfo?: { name: string; latitude: number; longitude: number }
+): void {
+  const transaction = db.transaction(() => {
+    db.prepare('DELETE FROM cached_departures WHERE tpc = ?').run(tpc);
+    const stmt = db.prepare(`
+      INSERT INTO cached_departures (tpc, direction, journey_number, scheduled_departure, expected_departure, delay_minutes, destination, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const d of departures) {
+      stmt.run(d.tpc, d.direction, d.journey_number, d.scheduled_departure, d.expected_departure, d.delay_minutes, d.destination, d.status);
+    }
+    // Update stop metadata + timestamp
+    db.prepare(`
+      INSERT OR REPLACE INTO cached_stops (tpc, stop_name, latitude, longitude, updated_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).run(tpc, stopInfo?.name ?? null, stopInfo?.latitude ?? null, stopInfo?.longitude ?? null);
+  });
+  transaction();
+}
+
+export function getCachedDeparturesForTpc(tpc: string, direction: number): DbCachedDeparture[] {
+  return db.prepare(
+    'SELECT * FROM cached_departures WHERE tpc = ? AND direction = ? ORDER BY expected_departure'
+  ).all(tpc, direction) as DbCachedDeparture[];
+}
+
+export function getAllCachedDeparturesForTpc(tpc: string): DbCachedDeparture[] {
+  return db.prepare(
+    'SELECT * FROM cached_departures WHERE tpc = ? ORDER BY expected_departure'
+  ).all(tpc) as DbCachedDeparture[];
+}
+
+export function getCachedStop(tpc: string): DbCachedStop | null {
+  return db.prepare(
+    'SELECT * FROM cached_stops WHERE tpc = ?'
+  ).get(tpc) as DbCachedStop | null;
+}
+
+export function getAlertTpcs(): string[] {
+  const rows = db.prepare(
+    'SELECT DISTINCT tpc FROM departure_alerts WHERE enabled = 1'
+  ).all() as Array<{ tpc: string }>;
+  return rows.map((r) => r.tpc);
+}
+
+// --- Delay recording (existing) ---
 
 export function getDelayStats(period: 'today' | 'week' | 'month'): DelayStats {
   let dateFilter: string;

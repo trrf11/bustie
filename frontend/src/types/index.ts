@@ -17,6 +17,8 @@ export interface Vehicle {
   stopId: string;
   timestamp: string;
   checkinCount: number;
+  speed: number;
+  distanceAlongRoute: number;
 }
 
 export interface RouteDirection {

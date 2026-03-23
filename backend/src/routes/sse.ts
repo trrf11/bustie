@@ -2,8 +2,9 @@ import { Router, Request, Response } from 'express';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { getVehiclesFromDb, getCheckinCounts } from '../db';
-import { getRouteData, getPrimaryShapes } from '../services/gtfs-static';
+import { getRouteData, getPrimaryShapes, getShapeAndCumDistForTrip } from '../services/gtfs-static';
 import { vehicleEventBus } from '../events';
+import { projectVehicle } from '../services/projection';
 
 // Read app version once at startup
 const APP_VERSION = (() => {
@@ -30,16 +31,27 @@ let totalConnections = 0;
 function buildVehiclesPayload() {
   const dbVehicles = getVehiclesFromDb();
   const checkinCounts = getCheckinCounts();
-  return dbVehicles.map((v) => ({
-    vehicleId: v.vehicle_id,
-    tripId: v.trip_id,
-    latitude: v.latitude,
-    longitude: v.longitude,
-    direction: v.direction,
-    delaySeconds: v.delay_seconds,
-    timestamp: v.updated_at,
-    checkinCount: checkinCounts[v.vehicle_id] || 0,
-  }));
+  return dbVehicles.map((v) => {
+    const shapeData = getShapeAndCumDistForTrip(v.trip_id, v.direction);
+    const projected = shapeData
+      ? projectVehicle(v, shapeData.shape, shapeData.cumDist)
+      : { latitude: v.latitude, longitude: v.longitude, distanceAlongRoute: v.distance_along_route };
+
+    return {
+      vehicleId: v.vehicle_id,
+      tripId: v.trip_id,
+      latitude: projected.latitude,
+      longitude: projected.longitude,
+      direction: v.direction,
+      delaySeconds: v.delay_seconds,
+      currentStatus: v.current_status,
+      stopId: v.stop_id,
+      timestamp: v.updated_at,
+      checkinCount: checkinCounts[v.vehicle_id] || 0,
+      speed: v.speed,
+      distanceAlongRoute: projected.distanceAlongRoute,
+    };
+  });
 }
 
 function buildRoutePayload() {

@@ -11,6 +11,8 @@ import { UpdatePill } from './components/UpdatePill';
 import { useVehicles } from './hooks/useVehicles';
 import { useSavedTrips } from './hooks/useSavedTrips';
 import { useCheckin } from './hooks/useCheckin';
+import { usePushNotifications } from './hooks/usePushNotifications';
+import { useAlerts } from './hooks/useAlerts';
 import type { SavedTrip, StopInfo } from './types';
 import './App.css';
 
@@ -93,7 +95,10 @@ function App() {
   const [directionFilter, setDirectionFilter] = useState<DirectionFilterValue>('all');
   const { trips: savedTrips, addTrip, removeTrip, removeTripByStop, updateWalkTime, reorderTrips } = useSavedTrips();
   const { checkin, loading: checkinLoading, doCheckin, doCheckout, isCheckedInto } = useCheckin();
+  const { state: pushState, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe, sendTest: pushSendTest, testSending: pushTestSending } = usePushNotifications();
+  const { saveAlert, deleteAlert, getAlertForStop } = useAlerts();
   const [showMenu, setShowMenu] = useState(false);
+  const [menuInitialSubPage, setMenuInitialSubPage] = useState<'about' | null>(null);
   const bottomSheetRef = useRef<BottomSheetHandle>(null);
   const busMapRef = useRef<BusMapHandle>(null);
 
@@ -122,6 +127,25 @@ function App() {
     const counts = await doCheckout();
     if (counts) setCheckinCounts(counts);
   }, [doCheckout, setCheckinCounts]);
+
+  const handleRemoveTrip = useCallback((id: string) => {
+    const trip = savedTrips.find((t) => t.id === id);
+    if (trip) {
+      deleteAlert(trip.tpc, trip.direction);
+    }
+    removeTrip(id);
+  }, [savedTrips, removeTrip, deleteAlert]);
+
+  const handleUpdateWalkTime = useCallback((id: string, walkTimeMinutes: number) => {
+    updateWalkTime(id, walkTimeMinutes);
+    const trip = savedTrips.find((t) => t.id === id);
+    if (trip) {
+      const existing = getAlertForStop(trip.tpc, trip.direction);
+      if (existing) {
+        saveAlert({ ...existing, walkTimeMinutes });
+      }
+    }
+  }, [savedTrips, updateWalkTime, getAlertForStop, saveAlert]);
 
   const handleSaveStop = useCallback((stop: StopInfo, direction: number) => {
     const tpc = STOP_TPC_MAP[`${direction}:${stop.name}`];
@@ -195,7 +219,11 @@ function App() {
             </button>
           )}
           {vehiclesData && (
-            <UpdatePill lastUpdate={lastUpdateTime} connectionStatus={connectionStatus} />
+            <UpdatePill
+              lastUpdate={lastUpdateTime}
+              connectionStatus={connectionStatus}
+              onOpenAbout={() => { setMenuInitialSubPage('about'); setShowMenu(true); }}
+            />
           )}
           {checkin && (
             <button
@@ -219,10 +247,14 @@ function App() {
         <div className="side-content desktop-only">
           <SavedTrips
             trips={savedTrips}
-            onRemove={removeTrip}
-            onUpdateWalkTime={updateWalkTime}
+            onRemove={handleRemoveTrip}
+            onUpdateWalkTime={handleUpdateWalkTime}
             onReorder={reorderTrips}
             onSelectStop={handleSelectStop}
+            pushState={pushState}
+            getAlertForStop={getAlertForStop}
+            onSaveAlert={saveAlert}
+            onDeleteAlert={deleteAlert}
           />
 
           {/* Hall of Shame — temporarily hidden
@@ -241,10 +273,14 @@ function App() {
           <div className="side-content">
             <SavedTrips
               trips={savedTrips}
-              onRemove={removeTrip}
-              onUpdateWalkTime={updateWalkTime}
+              onRemove={handleRemoveTrip}
+              onUpdateWalkTime={handleUpdateWalkTime}
               onReorder={reorderTrips}
               onSelectStop={handleSelectStop}
+              pushState={pushState}
+              getAlertForStop={getAlertForStop}
+              onSaveAlert={saveAlert}
+              onDeleteAlert={deleteAlert}
             />
 
             {/* Hall of Shame — temporarily hidden
@@ -257,7 +293,15 @@ function App() {
       </main>
 
       {showMenu && (
-        <MenuOverlay onClose={() => setShowMenu(false)} />
+        <MenuOverlay
+          onClose={() => { setShowMenu(false); setMenuInitialSubPage(null); }}
+          pushState={pushState}
+          pushSubscribe={pushSubscribe}
+          pushUnsubscribe={pushUnsubscribe}
+          pushSendTest={pushSendTest}
+          pushTestSending={pushTestSending}
+          initialSubPage={menuInitialSubPage}
+        />
       )}
     </div>
   );

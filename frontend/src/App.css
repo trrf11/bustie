@@ -390,11 +390,14 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-.update-pill {
+.update-pill-wrap {
   position: absolute;
   bottom: calc(14dvh + 8px);
   right: 12px;
   z-index: 1000;
+}
+
+.update-pill {
   background: rgba(18, 42, 45, 0.85);
   color: var(--color-text-muted);
   font-size: 0.65rem;
@@ -404,13 +407,58 @@ body {
   border: 1px solid var(--color-border);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  pointer-events: none;
+  cursor: pointer;
   font-variant-numeric: tabular-nums;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .update-pill--warn {
   border-color: var(--color-warning);
   color: var(--color-warning);
+  pointer-events: none;
+}
+
+.update-pill-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  width: 240px;
+  background: rgba(18, 42, 45, 0.95);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: tooltip-fade-in 0.15s ease-out;
+}
+
+.update-pill-tooltip p {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.update-pill-tooltip-link {
+  display: inline-block;
+  margin-top: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.7rem;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.update-pill-tooltip-link:hover {
+  text-decoration: underline;
+}
+
+@keyframes tooltip-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* === Side Content === */
@@ -445,6 +493,8 @@ body {
   border-top-right-radius: var(--radius-lg);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   outline: none;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Drag handle area */
@@ -470,6 +520,7 @@ body {
 /* Scrollable content area — overflow is set inline (auto when fully open, hidden otherwise) */
 .bottom-sheet-body {
   flex: 1;
+  min-height: 0;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
@@ -1251,7 +1302,7 @@ body {
     bottom: 44px;
   }
 
-  .update-pill {
+  .update-pill-wrap {
     bottom: 12px;
   }
 
@@ -1494,6 +1545,204 @@ body {
   font-size: 0.75rem;
   color: var(--color-muted);
   padding-top: 12px;
+}
+
+/* === Notification Toggle === */
+.notification-btn {
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+
+.notification-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.notification-btn--secondary {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.notification-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.notification-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+/* === Bell icon on saved trip cards === */
+.saved-trip-bell {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+
+.saved-trip-bell--active {
+  color: var(--color-primary);
+}
+
+/* === Alert config panel === */
+.alert-config {
+  padding: 10px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.alert-toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+}
+
+.alert-config-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.alert-time-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.alert-time-inputs input[type="time"] {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 4px 6px;
+  width: 80px;
+}
+
+.alert-day-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.alert-day-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.alert-day-chip--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.alert-config-info {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.alert-config-delete {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0.8;
+}
+
+.alert-config-delete:hover {
+  opacity: 1;
+}
+
+/* === iOS install guide steps === */
+.ios-install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 12px;
+}
+
+.ios-install-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.ios-install-step:last-child {
+  border-bottom: none;
+}
+
+.ios-install-icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.ios-install-app-icon {
+  flex-shrink: 0;
+  border-radius: 6px;
 }
 
 /* === Shared time display styles === */

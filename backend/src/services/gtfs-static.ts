@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
+import { polylineCumulativeDistances } from '../utils/geo';
 
 export interface StopInfo {
   stopId: string;
@@ -32,6 +33,12 @@ export interface RouteData {
 // In-memory route data
 let routeData: RouteData | null = null;
 
+// Cached cumulative distances per shape (computed lazily, cleared on reload)
+const cumDistCache = new Map<string, number[]>();
+
+// Cached primary shape ID per direction (0-indexed: dir 0 = direction1, dir 1 = direction2)
+let primaryShapeIds: { dir0: string | null; dir1: string | null } = { dir0: null, dir1: null };
+
 // Fast lookup sets for GTFS-RT filtering
 let routeIdSet: Set<string> = new Set();
 let tripIdSet: Set<string> = new Set();
@@ -53,6 +60,41 @@ export function getShapeForTrip(tripId: string): Array<[number, number]> | null 
   const shapeId = routeData.tripShapeMap[tripId];
   if (!shapeId) return null;
   return routeData.shapes[shapeId] || null;
+}
+
+/** Get cached cumulative distances for a shape. Computes lazily on first access. */
+export function getShapeCumulativeDistances(shapeId: string): number[] | null {
+  if (!routeData) return null;
+  const shape = routeData.shapes[shapeId];
+  if (!shape) return null;
+
+  let cached = cumDistCache.get(shapeId);
+  if (!cached) {
+    cached = polylineCumulativeDistances(shape);
+    cumDistCache.set(shapeId, cached);
+  }
+  return cached;
+}
+
+/** Get shape + cumulative distances for a trip. Falls back to primary shape for the direction. */
+export function getShapeAndCumDistForTrip(tripId: string, direction?: number | null): { shape: Array<[number, number]>; cumDist: number[] } | null {
+  if (!routeData) return null;
+
+  // Try trip-specific shape first
+  let shapeId: string | null = routeData.tripShapeMap[tripId] ?? null;
+
+  // Fall back to primary shape for the direction (handles rotated trip IDs)
+  if (!shapeId && direction != null) {
+    // direction uses display values 1/2, map to GTFS 0/1
+    shapeId = direction === 1 ? primaryShapeIds.dir0 : primaryShapeIds.dir1;
+  }
+
+  if (!shapeId) return null;
+  const shape = routeData.shapes[shapeId];
+  if (!shape) return null;
+  const cumDist = getShapeCumulativeDistances(shapeId);
+  if (!cumDist) return null;
+  return { shape, cumDist };
 }
 
 export function getDirectionForTrip(tripId: string): number | null {
@@ -81,14 +123,16 @@ export function getPrimaryShapes(): { direction1: Array<[number, number]>; direc
   // Pick the longest shape per direction
   for (const dir of [0, 1]) {
     let longestShape: Array<[number, number]> = [];
+    let longestShapeId: string | null = null;
     for (const shapeId of shapesByDir[dir]) {
       const shape = routeData.shapes[shapeId];
       if (shape && shape.length > longestShape.length) {
         longestShape = shape;
+        longestShapeId = shapeId;
       }
     }
-    if (dir === 0) result.direction1 = longestShape;
-    else result.direction2 = longestShape;
+    if (dir === 0) { result.direction1 = longestShape; primaryShapeIds.dir0 = longestShapeId; }
+    else { result.direction2 = longestShape; primaryShapeIds.dir1 = longestShapeId; }
   }
 
   return result;
@@ -109,6 +153,10 @@ export async function loadRouteData(): Promise<void> {
   if (routeData) {
     routeIdSet = new Set(routeData.routeIds);
     tripIdSet = new Set(routeData.tripIds);
+    cumDistCache.clear();
+
+    // Eagerly compute primary shape IDs so the collector can use them on first poll
+    getPrimaryShapes();
 
     console.log(`Loaded route data (extracted: ${routeData.metadata.extractedAt})`);
     console.log(`  Route IDs: ${routeData.routeIds.join(', ')}`);

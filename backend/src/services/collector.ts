@@ -1,10 +1,12 @@
 import { config } from '../config';
 import { fetchVehiclePositions } from './gtfs-rt';
 import { fetchTripUpdates } from './gtfs-rt';
-import { getDirectionForTrip } from './gtfs-static';
+import { getDirectionForTrip, getShapeAndCumDistForTrip } from './gtfs-static';
 import { replaceVehicles, replaceStopTimes, logPoll, purgeCheckinsWithMismatchedTrips, DbVehicle, DbStopTime } from '../db';
 import { checkGtfsFeedChanged, refreshGtfsData } from './gtfs-extract';
+import { invalidateStopIdCache } from './stop-mapping';
 import { vehicleEventBus } from '../events';
+import { snapToPolyline } from '../utils/geo';
 
 const MAX_BACKOFF = 5 * 60 * 1000; // 5 minutes
 
@@ -20,6 +22,10 @@ let gtfsRefreshInProgress = false;
 // Change detection: only emit SSE when data actually differs
 let lastVehicleFingerprint = '';
 
+// Previous snapshot for speed derivation (in-memory only, lost on restart)
+const MAX_SPEED = 25; // m/s (~90 km/h)
+const previousSnapshots = new Map<string, { distanceAlongRoute: number; timestamp: number; tripId: string }>();
+
 async function pollAndStoreVehicles(): Promise<void> {
   if (vehiclePollBusy) return;
   vehiclePollBusy = true;
@@ -34,6 +40,26 @@ async function pollAndStoreVehicles(): Promise<void> {
       const rawDirection = rtDirection !== null ? rtDirection : staticDirection;
       const direction = rawDirection !== null ? (rawDirection === 0 ? 1 : 2) : null;
 
+      // Compute speed and distance along route
+      let speed = 0;
+      let distanceAlongRoute = 0;
+      const shapeData = getShapeAndCumDistForTrip(v.tripId, direction);
+      if (shapeData) {
+        const snap = snapToPolyline([v.latitude, v.longitude], shapeData.shape, shapeData.cumDist);
+        distanceAlongRoute = snap.distanceAlongRoute;
+
+        const prev = previousSnapshots.get(v.vehicleId);
+        const currentTs = Date.parse(v.timestamp) / 1000;
+        if (prev && prev.tripId === v.tripId) {
+          const deltaDistance = distanceAlongRoute - prev.distanceAlongRoute;
+          const deltaTime = currentTs - prev.timestamp;
+          if (deltaDistance > 0 && deltaTime > 0) {
+            speed = Math.min(deltaDistance / deltaTime, MAX_SPEED);
+          }
+        }
+        previousSnapshots.set(v.vehicleId, { distanceAlongRoute, timestamp: currentTs, tripId: v.tripId });
+      }
+
       return {
         vehicle_id: v.vehicleId,
         trip_id: v.tripId,
@@ -42,6 +68,10 @@ async function pollAndStoreVehicles(): Promise<void> {
         longitude: v.longitude,
         delay_seconds: v.delaySeconds,
         updated_at: v.timestamp,
+        speed,
+        distance_along_route: distanceAlongRoute,
+        current_status: v.currentStatus,
+        stop_id: v.stopId,
       };
     });
 
@@ -133,6 +163,7 @@ async function pollAndStoreTripUpdates(): Promise<void> {
     }
 
     replaceStopTimes(stopTimes);
+    invalidateStopIdCache();
     logPoll('trip_updates', 'ok', updates.length);
     console.log(`Collected ${updates.length} trip updates (${stopTimes.length} stop times)`);
     tripUpdateBackoff = config.vehiclePollInterval;

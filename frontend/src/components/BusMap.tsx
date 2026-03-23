@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { StopPopup } from './StopPopup';
 import type { VehiclesResponse, StopInfo, SavedTrip } from '../types';
 import type { DirectionFilterValue } from './DirectionFilter';
+import { polylineCumulativeDistances, walkAlongPolyline } from '../utils/geo';
 import 'leaflet/dist/leaflet.css';
 
 // Bus marker icons — bus80.png faces LEFT by default (towards Zandvoort).
@@ -108,6 +109,8 @@ function FitBounds({ data }: { data: VehiclesResponse | null }) {
  */
 const EASE_DURATION = 3_000; // ms
 
+const MAX_PROJECTION = 400; // meters — must match backend cap
+
 function AnimatedBusMarker({
   vehicle,
   icon,
@@ -115,6 +118,8 @@ function AnimatedBusMarker({
   onCheckin,
   onCheckout,
   checkinLoading,
+  shape,
+  cumDist,
 }: {
   vehicle: VehiclesResponse['vehicles'][0];
   icon: L.DivIcon;
@@ -122,6 +127,8 @@ function AnimatedBusMarker({
   onCheckin: () => void;
   onCheckout: () => void;
   checkinLoading: boolean;
+  shape: Array<[number, number]> | null;
+  cumDist: number[] | null;
 }) {
   const markerRef = useRef<L.Marker | null>(null);
   const animRef = useRef<number | null>(null);
@@ -149,18 +156,34 @@ function AnimatedBusMarker({
     // Snap back to where we visually were (undo react-leaflet's jump)
     m.setLatLng(start);
 
+    // Capture vehicle data for continuation phase
+    const canContinue = shape && cumDist && vehicle.speed > 0 && vehicle.currentStatus !== 'STOPPED_AT';
+    const baseDistance = vehicle.distanceAlongRoute;
+    const speed = vehicle.speed;
+    const totalLength = cumDist ? cumDist[cumDist.length - 1] : 0;
+
     function animate(now: number) {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / EASE_DURATION, 1);
 
-      const lat = start.lat + (target.lat - start.lat) * t;
-      const lng = start.lng + (target.lng - start.lng) * t;
-      posRef.current = { lat, lng };
-      m.setLatLng([lat, lng]);
-
       if (t < 1) {
+        // Phase 1: ease to backend-projected position
+        const lat = start.lat + (target.lat - start.lat) * t;
+        const lng = start.lng + (target.lng - start.lng) * t;
+        posRef.current = { lat, lng };
+        m.setLatLng([lat, lng]);
+        animRef.current = requestAnimationFrame(animate);
+      } else if (canContinue && shape && cumDist) {
+        // Phase 2: continue walking along polyline at reported speed
+        const continuationElapsed = (elapsed - EASE_DURATION) / 1000;
+        const extraDist = Math.min(speed * continuationElapsed, MAX_PROJECTION);
+        const currentDist = Math.min(baseDistance + extraDist, totalLength);
+        const [lat, lng] = walkAlongPolyline(currentDist, shape, cumDist);
+        posRef.current = { lat, lng };
+        m.setLatLng([lat, lng]);
         animRef.current = requestAnimationFrame(animate);
       }
+      // else: stopped — animation ends
     }
 
     animRef.current = requestAnimationFrame(animate);
@@ -168,7 +191,7 @@ function AnimatedBusMarker({
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [vehicle.latitude, vehicle.longitude]);
+  }, [vehicle.latitude, vehicle.longitude, vehicle.speed, vehicle.distanceAlongRoute, vehicle.currentStatus, shape, cumDist]);
 
   return (
     <Marker
@@ -211,12 +234,14 @@ function AnimatedBusMarker({
  * Listens to `zoomend` (fires once after gesture) instead of `zoom`
  * (fires every frame) to avoid fighting Leaflet's internal animation.
  */
-function BusVehicleMarkers({ vehicles, checkinLoading, isCheckedInto, onCheckin, onCheckout }: {
+function BusVehicleMarkers({ vehicles, checkinLoading, isCheckedInto, onCheckin, onCheckout, dir1Shape, dir2Shape }: {
   vehicles: VehiclesResponse['vehicles'];
   checkinLoading: boolean;
   isCheckedInto: (vehicleId: string, tripId: string) => boolean;
   onCheckin: (vehicleId: string, tripId: string) => void;
   onCheckout: () => void;
+  dir1Shape: Array<[number, number]>;
+  dir2Shape: Array<[number, number]>;
 }) {
   const map = useMap();
   const [zoom, setZoom] = useState(map.getZoom());
@@ -228,6 +253,16 @@ function BusVehicleMarkers({ vehicles, checkinLoading, isCheckedInto, onCheckin,
   });
 
   const size = getBusIconSize(zoom);
+
+  // Precompute cumulative distances per direction (static, only recomputed on shape change)
+  const dir1CumDist = useMemo(
+    () => dir1Shape.length > 0 ? polylineCumulativeDistances(dir1Shape) : null,
+    [dir1Shape],
+  );
+  const dir2CumDist = useMemo(
+    () => dir2Shape.length > 0 ? polylineCumulativeDistances(dir2Shape) : null,
+    [dir2Shape],
+  );
 
   // Create per-vehicle icons (cheap for 2-6 buses) to include checkinCount in badge
   const vehicleIcons = useMemo(() => {
@@ -250,6 +285,8 @@ function BusVehicleMarkers({ vehicles, checkinLoading, isCheckedInto, onCheckin,
           onCheckin={() => onCheckin(vehicle.vehicleId, vehicle.tripId)}
           onCheckout={() => onCheckout()}
           checkinLoading={checkinLoading}
+          shape={vehicle.direction === 1 ? dir1Shape : vehicle.direction === 2 ? dir2Shape : null}
+          cumDist={vehicle.direction === 1 ? dir1CumDist : vehicle.direction === 2 ? dir2CumDist : null}
         />
       ))}
     </>
@@ -403,6 +440,8 @@ function MapContent({ data, directionFilter, savedTrips, tpcMap, onSaveStop, onR
         isCheckedInto={isCheckedInto}
         onCheckin={onCheckin}
         onCheckout={onCheckout}
+        dir1Shape={dir1Shape}
+        dir2Shape={dir2Shape}
       />
     </>
   );

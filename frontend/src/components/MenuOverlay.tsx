@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
+import { NotificationToggle } from './NotificationToggle';
+import type { PushState } from '../hooks/usePushNotifications';
 
 interface MenuOverlayProps {
   onClose: () => void;
+  pushState: PushState;
+  pushSubscribe: () => Promise<void>;
+  pushUnsubscribe: () => Promise<void>;
+  pushSendTest: () => Promise<void>;
+  pushTestSending: boolean;
+  initialSubPage?: SubPage;
 }
 
-export function MenuOverlay({ onClose }: MenuOverlayProps) {
-  const [showAbout, setShowAbout] = useState(false);
+type SubPage = null | 'about' | 'notifications';
+
+export function MenuOverlay({ onClose, pushState, pushSubscribe, pushUnsubscribe, pushSendTest, pushTestSending, initialSubPage }: MenuOverlayProps) {
+  const [subPage, setSubPage] = useState<SubPage>(initialSubPage ?? null);
   const [closing, setClosing] = useState(false);
 
   useEffect(() => {
@@ -19,6 +29,12 @@ export function MenuOverlay({ onClose }: MenuOverlayProps) {
     setClosing(true);
   };
 
+  const title = subPage === 'about'
+    ? 'Over busties.nl'
+    : subPage === 'notifications'
+      ? 'Notificaties'
+      : 'Menu';
+
   return (
     <div
       className={`menu-overlay${closing ? ' menu-overlay--closing' : ''}`}
@@ -27,7 +43,7 @@ export function MenuOverlay({ onClose }: MenuOverlayProps) {
       <div className="menu-overlay-header">
         <button
           className="menu-overlay-back"
-          onClick={showAbout ? () => setShowAbout(false) : handleClose}
+          onClick={subPage ? () => setSubPage(null) : handleClose}
           aria-label="Terug"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -35,11 +51,11 @@ export function MenuOverlay({ onClose }: MenuOverlayProps) {
           </svg>
         </button>
         <span className="menu-overlay-title">
-          {showAbout ? 'Over busties.nl' : 'Menu'}
+          {title}
         </span>
       </div>
 
-      {showAbout ? (
+      {subPage === 'about' ? (
         <div className="menu-overlay-body">
           <div className="menu-about">
             <div className="menu-about-section">
@@ -83,6 +99,16 @@ export function MenuOverlay({ onClose }: MenuOverlayProps) {
             </div>
           </div>
         </div>
+      ) : subPage === 'notifications' ? (
+        <div className="menu-overlay-body">
+          <NotificationToggle
+            state={pushState}
+            subscribe={pushSubscribe}
+            unsubscribe={pushUnsubscribe}
+            sendTest={pushSendTest}
+            testSending={pushTestSending}
+          />
+        </div>
       ) : (
         <div className="menu-overlay-body">
           <div className="menu-list">
@@ -99,7 +125,16 @@ export function MenuOverlay({ onClose }: MenuOverlayProps) {
             </a>
             <button
               className="menu-item"
-              onClick={() => setShowAbout(true)}
+              onClick={() => setSubPage('notifications')}
+            >
+              <span className="menu-item-label">Notificaties</span>
+              <svg className="menu-item-chevron" width="16" height="16" viewBox="0 0 20 20" fill="none">
+                <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <button
+              className="menu-item"
+              onClick={() => setSubPage('about')}
             >
               <span className="menu-item-label">Over busties.nl</span>
               <svg className="menu-item-chevron" width="16" height="16" viewBox="0 0 20 20" fill="none">
