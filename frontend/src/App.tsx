@@ -251,10 +251,6 @@ function App() {
             onUpdateWalkTime={handleUpdateWalkTime}
             onReorder={reorderTrips}
             onSelectStop={handleSelectStop}
-            pushState={pushState}
-            getAlertForStop={getAlertForStop}
-            onSaveAlert={saveAlert}
-            onDeleteAlert={deleteAlert}
           />
 
           {/* Hall of Shame — temporarily hidden
@@ -277,10 +273,6 @@ function App() {
               onUpdateWalkTime={handleUpdateWalkTime}
               onReorder={reorderTrips}
               onSelectStop={handleSelectStop}
-              pushState={pushState}
-              getAlertForStop={getAlertForStop}
-              onSaveAlert={saveAlert}
-              onDeleteAlert={deleteAlert}
             />
 
             {/* Hall of Shame — temporarily hidden

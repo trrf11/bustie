@@ -123,6 +123,7 @@ export function MenuOverlay({ onClose, pushState, pushSubscribe, pushUnsubscribe
                 <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </a>
+            {/* Notifications menu item — hidden until feature is ready
             <button
               className="menu-item"
               onClick={() => setSubPage('notifications')}
@@ -132,6 +133,7 @@ export function MenuOverlay({ onClose, pushState, pushSubscribe, pushUnsubscribe
                 <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
+            */}
             <button
               className="menu-item"
               onClick={() => setSubPage('about')}

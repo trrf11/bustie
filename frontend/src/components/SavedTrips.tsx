@@ -1,7 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import type { SavedTrip, DeparturesResponse } from '../types';
-import type { AlertConfig } from '../hooks/useAlerts';
-import type { PushState } from '../hooks/usePushNotifications';
 
 interface SavedTripsProps {
   trips: SavedTrip[];
@@ -9,10 +7,6 @@ interface SavedTripsProps {
   onUpdateWalkTime: (id: string, walkTimeMinutes: number) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   onSelectStop?: (trip: SavedTrip) => void;
-  pushState: PushState;
-  getAlertForStop: (tpc: string, direction: number) => AlertConfig | undefined;
-  onSaveAlert: (alert: AlertConfig) => Promise<void>;
-  onDeleteAlert: (tpc: string, direction: number) => Promise<void>;
 }
 
 const WALK_TIME_PRESETS = [5, 10, 15];
@@ -40,11 +34,9 @@ function scheduledTime(expected: string, delayMin: number): string {
   return formatTime(d.toISOString());
 }
 
-const DAY_LABELS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
-const DEFAULT_DAYS = [1, 2, 3, 4, 5];
 const MAX_WALK_TIME = 45;
 
-function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, dragHandleProps, pushState, alert, onSaveAlert, onDeleteAlert }: {
+function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, dragHandleProps }: {
   trip: SavedTrip;
   index: number;
   onRemove: () => void;
@@ -54,10 +46,6 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
     onPointerDown: (e: React.PointerEvent) => void;
     onTouchStart: (e: React.TouchEvent) => void;
   };
-  pushState: PushState;
-  alert: AlertConfig | undefined;
-  onSaveAlert: (alert: AlertConfig) => Promise<void>;
-  onDeleteAlert: (tpc: string, direction: number) => Promise<void>;
 }) {
   const [upcomingDeps, setUpcomingDeps] = useState<{
     expected: string;
@@ -69,7 +57,6 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
   const [showWalkTimePicker, setShowWalkTimePicker] = useState(false);
   const [customWalkTime, setCustomWalkTime] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
-  const [showAlertConfig, setShowAlertConfig] = useState(false);
   const [selectedDepIndex, setSelectedDepIndex] = useState(0);
   const calloutRef = useRef<HTMLDivElement>(null);
   const timeItemRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -198,6 +185,7 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
               <span className="saved-trip-direction">{trip.directionLabel}</span>
             </div>
             <div className="saved-trip-header-right">
+              {/* Bell icon — hidden until notifications feature is ready
               {pushState === 'subscribed' && (
                 <button
                   className={`saved-trip-bell${alert?.enabled ? ' saved-trip-bell--active' : ''}`}
@@ -227,6 +215,7 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
                   </svg>
                 </button>
               )}
+              */}
               {!loading && firstDep && (
                 <span className={`saved-trip-badge${firstDep.delayed ? ' saved-trip-badge--delayed' : ''}`}>
                   {formatMinutesUntil(firstDep.expected)}
@@ -354,91 +343,20 @@ function SavedTripCard({ trip, index, onRemove, onUpdateWalkTime, onSelect, drag
             </div>
           )}
 
+          {/* Alert config panel — hidden until notifications feature is ready
           {showAlertConfig && alert && (
             <div className="alert-config" data-vaul-no-drag onClick={(e) => e.stopPropagation()}>
-              <div className="alert-config-row">
-                <label className="alert-toggle-label">
-                  <input
-                    type="checkbox"
-                    checked={alert.enabled}
-                    onChange={() => onSaveAlert({ ...alert, enabled: !alert.enabled })}
-                  />
-                  <span>Meldingen {alert.enabled ? 'aan' : 'uit'}</span>
-                </label>
-              </div>
-
-              <div className="alert-config-row">
-                <span className="alert-config-label">Tijdvenster</span>
-                <div className="alert-time-inputs">
-                  <input
-                    type="time"
-                    value={alert.timeWindowStart}
-                    onChange={(e) => {
-                      const start = e.target.value;
-                      const end = start > alert.timeWindowEnd ? start : alert.timeWindowEnd;
-                      onSaveAlert({ ...alert, timeWindowStart: start, timeWindowEnd: end });
-                    }}
-                  />
-                  <span>—</span>
-                  <input
-                    type="time"
-                    value={alert.timeWindowEnd}
-                    onChange={(e) => {
-                      const end = e.target.value;
-                      const start = end < alert.timeWindowStart ? end : alert.timeWindowStart;
-                      onSaveAlert({ ...alert, timeWindowStart: start, timeWindowEnd: end });
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="alert-config-row">
-                <div className="alert-day-chips">
-                  {DAY_LABELS.map((label, i) => {
-                    const day = i + 1;
-                    const active = alert.daysOfWeek.includes(day);
-                    return (
-                      <button
-                        key={day}
-                        className={`alert-day-chip${active ? ' alert-day-chip--active' : ''}`}
-                        onClick={() => {
-                          const newDays = active
-                            ? alert.daysOfWeek.filter((d) => d !== day)
-                            : [...alert.daysOfWeek, day].sort();
-                          if (newDays.length > 0) {
-                            onSaveAlert({ ...alert, daysOfWeek: newDays });
-                          }
-                        }}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="alert-config-row alert-config-info">
-                Melding {trip.walkTimeMinutes > 0 ? trip.walkTimeMinutes + 1 : 5} min voor vertrek
-              </div>
-
-              <button
-                className="alert-config-delete"
-                onClick={() => {
-                  onDeleteAlert(trip.tpc, trip.direction);
-                  setShowAlertConfig(false);
-                }}
-              >
-                Melding verwijderen
-              </button>
+              ...
             </div>
           )}
+          */}
         </div>
       </div>
     </div>
   );
 }
 
-export function SavedTrips({ trips, onRemove, onUpdateWalkTime, onReorder, onSelectStop, pushState, getAlertForStop, onSaveAlert, onDeleteAlert }: SavedTripsProps) {
+export function SavedTrips({ trips, onRemove, onUpdateWalkTime, onReorder, onSelectStop }: SavedTripsProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -546,10 +464,6 @@ export function SavedTrips({ trips, onRemove, onUpdateWalkTime, onReorder, onSel
                 onPointerDown: handlePointerDown(i),
                 onTouchStart: handleTouchStart(i),
               }}
-              pushState={pushState}
-              alert={getAlertForStop(trip.tpc, trip.direction)}
-              onSaveAlert={onSaveAlert}
-              onDeleteAlert={onDeleteAlert}
             />
           </div>
         ))}
