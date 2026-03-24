@@ -167,6 +167,13 @@ export function getStopIdsForDirection(direction: number): string[] {
 }
 
 /**
+ * Get all unique TPC codes.
+ */
+export function getAllTpcs(): string[] {
+  return Object.keys(TPC_TO_NAME);
+}
+
+/**
  * Invalidate the cache (call after route data reload).
  */
 export function invalidateStopIdCache(): void {

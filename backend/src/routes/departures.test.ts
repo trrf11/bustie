@@ -6,12 +6,8 @@ vi.mock('../db', () => ({
   getAllCachedDeparturesForTpc: vi.fn(),
   getCachedStop: vi.fn(),
 }));
-vi.mock('../services/polling', () => ({
-  fetchAndCacheDepartures: vi.fn(),
-}));
 
 import { getAllCachedDeparturesForTpc, getCachedStop } from '../db';
-import { fetchAndCacheDepartures } from '../services/polling';
 
 const app = createApp();
 
@@ -44,7 +40,6 @@ const cachedStop = {
 beforeEach(() => {
   vi.mocked(getAllCachedDeparturesForTpc).mockReset();
   vi.mocked(getCachedStop).mockReset();
-  vi.mocked(fetchAndCacheDepartures).mockReset();
 });
 
 describe('GET /api/departures', () => {
@@ -58,18 +53,17 @@ describe('GET /api/departures', () => {
     expect(res.body.departures).toHaveLength(1);
     expect(res.body.departures[0].journeyNumber).toBe(101);
     expect(res.body.stale).toBe(false);
-    expect(fetchAndCacheDepartures).not.toHaveBeenCalled();
   });
 
-  it('fetches on-demand when no cache exists', async () => {
-    vi.mocked(getCachedStop).mockReturnValueOnce(null).mockReturnValueOnce(cachedStop);
-    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([cachedDep1]);
-    vi.mocked(fetchAndCacheDepartures).mockResolvedValue();
+  it('returns empty departures when stop not yet cached', async () => {
+    vi.mocked(getCachedStop).mockReturnValue(null);
+    vi.mocked(getAllCachedDeparturesForTpc).mockReturnValue([]);
 
     const res = await request(app).get('/api/departures?tpc=55230110&direction=1');
 
     expect(res.status).toBe(200);
-    expect(fetchAndCacheDepartures).toHaveBeenCalledWith('55230110');
+    expect(res.body.departures).toHaveLength(0);
+    expect(res.body.stale).toBe(true);
   });
 
   it('filters departures by direction', async () => {
@@ -112,16 +106,6 @@ describe('GET /api/departures', () => {
 
     const res = await request(app).get('/api/departures?direction=1');
     expect(res.body.stale).toBe(true);
-  });
-
-  it('returns 500 on fetch error', async () => {
-    vi.mocked(getCachedStop).mockReturnValue(null);
-    vi.mocked(fetchAndCacheDepartures).mockRejectedValue(new Error('OVapi error'));
-
-    const res = await request(app).get('/api/departures?direction=1');
-
-    expect(res.status).toBe(500);
-    expect(res.body.error).toBe('Failed to fetch departures');
   });
 
   it('uses default tpc and direction when not specified', async () => {

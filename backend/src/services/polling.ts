@@ -1,6 +1,7 @@
 import { config } from '../config';
 import { fetchDepartures, DepartureResult } from './ovapi';
-import { recordDelay, getAlertTpcs, replaceCachedDepartures, DbCachedDeparture } from '../db';
+import { recordDelay, replaceCachedDepartures, DbCachedDeparture } from '../db';
+import { getAllTpcs } from './stop-mapping';
 
 let departurePollBusy = false;
 let departureBackoff: number = config.departurePollInterval;
@@ -40,27 +41,34 @@ async function pollDepartures(): Promise<void> {
   departurePollBusy = true;
 
   try {
-    // Always poll the default stop
-    const result = await fetchDepartures(config.defaultTpc);
-    storeDeparturesInDb(config.defaultTpc, result);
+    const allTpcs = getAllTpcs();
 
-    // Record delays for the leaderboard
-    for (const dep of result.departures) {
-      const key = `${dep.journeyNumber}-${dep.scheduledDeparture}`;
-      if (recordedJourneys.has(key)) continue;
+    for (const tpc of allTpcs) {
+      try {
+        const result = await fetchDepartures(tpc);
+        storeDeparturesInDb(tpc, result);
 
-      if (dep.isDelayed && dep.delayMinutes >= 1) {
-        recordDelay(
-          dep.journeyNumber,
-          dep.lineDirection,
-          result.stop?.name || 'Unknown',
-          config.defaultTpc,
-          dep.scheduledDeparture,
-          dep.expectedDeparture,
-          dep.delayMinutes,
-          dep.destination
-        );
-        recordedJourneys.add(key);
+        // Record delays for the leaderboard
+        for (const dep of result.departures) {
+          const key = `${dep.journeyNumber}-${dep.scheduledDeparture}`;
+          if (recordedJourneys.has(key)) continue;
+
+          if (dep.isDelayed && dep.delayMinutes >= 1) {
+            recordDelay(
+              dep.journeyNumber,
+              dep.lineDirection,
+              result.stop?.name || 'Unknown',
+              tpc,
+              dep.scheduledDeparture,
+              dep.expectedDeparture,
+              dep.delayMinutes,
+              dep.destination
+            );
+            recordedJourneys.add(key);
+          }
+        }
+      } catch (err) {
+        console.error(`TPC ${tpc} poll failed:`, (err as Error).message);
       }
     }
 
@@ -68,17 +76,6 @@ async function pollDepartures(): Promise<void> {
     if (recordedJourneys.size > 200) {
       const entries = Array.from(recordedJourneys);
       entries.slice(0, entries.length - 200).forEach((k) => recordedJourneys.delete(k));
-    }
-
-    // Also poll TPCs from active alerts (skip the default, already done)
-    const alertTpcs = getAlertTpcs().filter((tpc) => tpc !== config.defaultTpc);
-    for (const tpc of alertTpcs) {
-      try {
-        const alertResult = await fetchDepartures(tpc);
-        storeDeparturesInDb(tpc, alertResult);
-      } catch (err) {
-        console.error(`Alert TPC ${tpc} poll failed:`, (err as Error).message);
-      }
     }
 
     departureBackoff = config.departurePollInterval;

@@ -1,24 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { config } from '../config';
 import { getAllCachedDeparturesForTpc, getCachedStop } from '../db';
-import { fetchAndCacheDepartures } from '../services/polling';
 
 export const departuresRouter = Router();
 
-departuresRouter.get('/', async (req: Request, res: Response) => {
+departuresRouter.get('/', (req: Request, res: Response) => {
   const tpc = (req.query.tpc as string) || config.defaultTpc;
   const direction = parseInt((req.query.direction as string) || String(config.defaultDirection), 10);
   const walkTime = parseInt((req.query.walkTime as string) || '0', 10);
 
   try {
-    // Check if we have cached data for this TPC
-    let cachedStop = getCachedStop(tpc);
-
-    // If no cache exists, fetch on-demand and store in SQLite
-    if (!cachedStop) {
-      await fetchAndCacheDepartures(tpc);
-      cachedStop = getCachedStop(tpc);
-    }
+    const cachedStop = getCachedStop(tpc);
 
     const allDepartures = getAllCachedDeparturesForTpc(tpc);
     const filteredDepartures = allDepartures.filter((d) => d.direction === direction);

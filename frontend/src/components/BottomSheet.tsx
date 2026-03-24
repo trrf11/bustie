@@ -28,7 +28,7 @@ export const BottomSheet = forwardRef<BottomSheetHandle, BottomSheetProps>(
     }));
 
     // Only allow scrolling when fully expanded
-    const isFullyOpen = snap === SNAP_POINTS[2];
+    const canScroll = snap === SNAP_POINTS[2];
 
     return (
       <Drawer.Root
@@ -47,7 +47,7 @@ export const BottomSheet = forwardRef<BottomSheetHandle, BottomSheetProps>(
             </div>
             <div
               className="bottom-sheet-body"
-              style={{ overflowY: isFullyOpen ? 'auto' : 'hidden' }}
+              style={{ overflowY: canScroll ? 'auto' : 'hidden' }}
             >
               {children}
             </div>
